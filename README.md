@@ -4,6 +4,8 @@ Local-first Outlook-to-Obsidian knowledge base sync and read-only search API.
 
 This repository is for source code only. Do not store Obsidian vault contents, exported emails, `.msg` files, attachments, SQLite databases, tokens, SSH keys, or personal notes in GitHub or GitHub Enterprise, including `https://github.sec.samsung.net`.
 
+Important: running kbkb does not require a GitHub token. Do not configure `GITHUB_TOKEN` for this project. The only runtime tokens used by kbkb are local KB API tokens: `KB_API_TOKEN` and `KB_API_ADMIN_TOKEN`.
+
 ## Components
 
 - `kb_win_sync`: Windows-side Outlook import, Markdown rendering, state storage, and optional SFTP sync.
@@ -141,7 +143,7 @@ python3 cline_skill_obsidian_kb/scripts/kb_context.py "What did we decide about 
 
 - Keep the API bound to `127.0.0.1` unless you have a reviewed network access plan.
 - Use bearer tokens for every non-health endpoint.
-- GitHub tokens are not required; do not put `GITHUB_TOKEN` or GitHub credentials in this project config.
+- GitHub tokens are not required for install, import, sync, API serving, or skill scripts; do not put `GITHUB_TOKEN` or GitHub credentials in this project config.
 - Use vault-relative paths only; absolute paths and `..` traversal are rejected.
 - Do not use GitHub, GitHub Enterprise, Obsidian Sync, Obsidian Publish, or external SaaS as personal knowledge storage.
 - The repository test fixtures are synthetic and must remain synthetic.

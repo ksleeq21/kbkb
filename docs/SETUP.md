@@ -2,11 +2,13 @@
 
 이 문서는 설치, 토큰 설정, 서비스 등록, 제거 절차를 한 곳에 모은 운영용 가이드다.
 
+Important: kbkb does not require a GitHub token. Do not create or configure `GITHUB_TOKEN` for kbkb installation, Outlook import, SFTP sync, Linux API serving, or Cline/Codex skill scripts.
+
 ## Token Policy
 
 ### GitHub Token
 
-GitHub token is not required.
+GitHub token is not required for this project.
 
 이 프로젝트는 GitHub 또는 GitHub Enterprise를 개인 지식 데이터 저장소로 사용하지 않는다. GitHub는 소스 코드 저장소로만 사용할 수 있으며, 다음 데이터는 GitHub에 올리면 안 된다.
 
@@ -21,7 +23,7 @@ GitHub token is not required.
 - SSH private keys
 - `.env` files
 
-If a GitHub token exists on the machine for other development work, do not put it in this project config. `kb_win_sync`, `kb_api`, and the skill scripts do not read or need `GITHUB_TOKEN`.
+If a GitHub token exists on the machine for other development work, ignore it for kbkb. Do not put it in this project config. `kb_win_sync`, `kb_api`, and the skill scripts do not read or need `GITHUB_TOKEN`.
 
 ### KB API Tokens
 
