@@ -12,6 +12,34 @@ from .server import serve
 from .templates import LINUX_CONFIG_TEMPLATE
 
 
+def _write_config_template(output_arg: str, *, force: bool) -> int:
+    output = Path(output_arg)
+    if output.exists() and not force:
+        print(f"ERROR: config already exists: {output}", file=sys.stderr)
+        print("Use --force to overwrite.", file=sys.stderr)
+        return 2
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(LINUX_CONFIG_TEMPLATE, encoding="utf-8")
+    print(f"created config: {output}")
+    print("next:")
+    print(f"  1. edit {output}")
+    print(f"  2. kb-api doctor --config {output}")
+    print(f"  3. kb-api reindex --config {output}")
+    return 0
+
+
+def _print_check_result(result) -> int:
+    for item in result.errors:
+        print(f"ERROR: {item}")
+    for item in result.warnings:
+        print(f"WARNING: {item}")
+    if result.ok:
+        print("config: ok")
+        return 0
+    print("config: failed", file=sys.stderr)
+    return 2
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m kb_api")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -27,29 +55,10 @@ def main(argv: list[str] | None = None) -> int:
     init.add_argument("--force", action="store_true")
     args = parser.parse_args(argv)
     if args.command == "init-config":
-        output = Path(args.output)
-        if output.exists() and not args.force:
-            print(f"ERROR: config already exists: {output}", file=sys.stderr)
-            print("Use --force to overwrite.", file=sys.stderr)
-            return 2
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(LINUX_CONFIG_TEMPLATE, encoding="utf-8")
-        print(f"created config: {output}")
-        print(f"next: edit {output}")
-        print(f"next: python3 -m kb_api validate-config --config {output}")
-        return 0
+        return _write_config_template(args.output, force=args.force)
     config = load_config(args.config)
     if args.command == "validate-config":
-        result = validate_config(config)
-        for item in result.errors:
-            print(f"ERROR: {item}")
-        for item in result.warnings:
-            print(f"WARNING: {item}")
-        if result.ok:
-            print("config: ok")
-            return 0
-        print("config: failed", file=sys.stderr)
-        return 2
+        return _print_check_result(validate_config(config))
     if args.command == "status":
         print("\n".join(status_lines(config)))
         return 0
@@ -61,6 +70,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             print("\n".join(smoke_test(config)))
             print("smoke-test: ok")
+            print("next: kb-api init-config --output ~/.config/kb-api/config.yaml")
             return 0
         except RuntimeError as exc:
             print(str(exc))
@@ -69,6 +79,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "reindex":
         stats = reindex(config)
         print(f"indexed notes={stats.notes} chunks={stats.chunks}")
+        print(f"next: kb-api serve --config {args.config}")
+        print("verify: curl -sS 'http://127.0.0.1:8765/health?deep=true'")
         return 0
     if args.command == "enrich":
         try:

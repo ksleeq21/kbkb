@@ -9,6 +9,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+from kb_client import format_http_error
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()
@@ -49,7 +51,7 @@ def main() -> int:
         with urlopen(req, timeout=10) as response:
             data = json.load(response)
     except HTTPError as exc:
-        print(_http_error(exc), file=sys.stderr)
+        print(format_http_error(exc), file=sys.stderr)
         return 1
     except URLError as exc:
         print(f"API connection failed: {exc.reason}", file=sys.stderr)
@@ -63,17 +65,6 @@ def main() -> int:
         print(f"- {item['path']} | {item.get('title','')} | type={item.get('type','')} sender={sender} received={received}")
         print(f"  {item.get('excerpt','').replace(chr(10), ' ')[:300]}")
     return 0
-
-
-def _http_error(exc: HTTPError) -> str:
-    try:
-        payload = json.loads(exc.read().decode("utf-8"))
-        error = payload.get("error", {})
-        if isinstance(error, dict):
-            return f"API error {exc.code}: {error.get('code', 'unknown')} - {error.get('message', '')}"
-    except Exception:
-        pass
-    return f"API error {exc.code}: {exc.reason}"
 
 
 if __name__ == "__main__":

@@ -3,10 +3,12 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from contextlib import redirect_stdout
+from io import StringIO
 from pathlib import Path
 
-from kb_win_sync.__main__ import parse_mailbox_selection, save_email_artifacts
-from kb_win_sync.config import load_config, parse_config
+from kb_win_sync.__main__ import parse_mailbox_selection, run_import, save_email_artifacts
+from kb_win_sync.config import OutlookFolderConfig, SyncConfig, WinConfig, load_config, parse_config
 from kb_win_sync.email_model import EmailAttachment, EmailMessage
 from kb_win_sync.render import message_key, render_markdown, sanitize_filename, target_path
 from kb_win_sync.state import ImportState, StateStore
@@ -111,6 +113,51 @@ class WinSyncTests(unittest.TestCase):
             self.assertEqual(saved.original_msg, f"90_Attachments/email/{key}/original.msg")
             self.assertTrue((Path(tmp) / saved.attachments[0].saved_path).exists())
             self.assertTrue((Path(tmp) / saved.original_msg).exists())
+
+    def test_run_import_dry_run_is_testable_without_outlook(self) -> None:
+        class FakeClient:
+            def iter_folder_messages(self, folder: OutlookFolderConfig):
+                self.folder = folder
+                return [
+                    EmailMessage(
+                        subject="Dry run",
+                        sender="Kim <kim@example.test>",
+                        received="2026-05-19T09:15:00+09:00",
+                        body="body",
+                        message_id="dry-run-message",
+                    )
+                ]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config = WinConfig(
+                vault_path=root / "vault",
+                state_path=root / "state.json",
+                log_path=root / "sync.log",
+                folders=[
+                    OutlookFolderConfig(
+                        name="project-a",
+                        outlook_path="\\Mailbox\\Inbox\\_KB\\ProjectA",
+                        target_folder="20_Emails/ProjectA",
+                    )
+                ],
+                sync=SyncConfig(enabled=False),
+            )
+            output = StringIO()
+            with redirect_stdout(output):
+                summary = run_import(
+                    config,
+                    FakeClient(),
+                    dry_run=True,
+                    folder_filter=None,
+                    force=False,
+                    config_path=str(root / "config.yaml"),
+                )
+            self.assertEqual(summary["scanned"], 1)
+            self.assertEqual(summary["imported"], 0)
+            self.assertIn("summary scanned=1 imported=0", output.getvalue())
+            self.assertIn("next: kb-win-sync --config", output.getvalue())
+            self.assertFalse(config.state_path.exists())
 
     def test_incremental_sync_manifest_tracks_changed_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

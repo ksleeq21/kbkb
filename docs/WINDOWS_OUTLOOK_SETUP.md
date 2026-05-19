@@ -8,6 +8,8 @@ This guide covers Outlook folder selection, first manual import, and Task Schedu
 - Install Windows optional dependencies:
 
 ```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 python -m pip install -e ".[windows]"
 ```
 
@@ -19,8 +21,8 @@ python -m pip install -e ".[windows]"
 Generate a local config outside the repository:
 
 ```powershell
-python -m kb_win_sync init-config --output "$env:USERPROFILE\kb-win-sync\config.yaml"
-python -m kb_win_sync list-mailboxes
+kb-win-sync init-config --output "$env:USERPROFILE\kb-win-sync\config.yaml"
+kb-win-sync list-mailboxes
 notepad "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
 
@@ -31,7 +33,7 @@ The generated file is a template. Edit `vault_path`, `outlook.folders`, and opti
 Use the mailbox picker before editing `outlook.folders` by hand:
 
 ```powershell
-python -m kb_win_sync list-mailboxes
+kb-win-sync list-mailboxes
 ```
 
 The command opens classic Outlook through COM automation, prints mailboxes and folders with numeric indexes, and prompts:
@@ -100,9 +102,9 @@ Do not point import at the entire Inbox unless that is intentional. The safer wo
 Run these before the first import:
 
 ```powershell
-python -m kb_win_sync validate-config --config "$env:USERPROFILE\kb-win-sync\config.yaml"
-python -m kb_win_sync doctor --config "$env:USERPROFILE\kb-win-sync\config.yaml"
-python -m kb_win_sync --config "$env:USERPROFILE\kb-win-sync\config.yaml" --dry-run
+kb-win-sync validate-config --config "$env:USERPROFILE\kb-win-sync\config.yaml"
+kb-win-sync doctor --config "$env:USERPROFILE\kb-win-sync\config.yaml"
+kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml" --dry-run
 ```
 
 Expected dry-run behavior:
@@ -116,7 +118,7 @@ Expected dry-run behavior:
 After dry-run looks correct:
 
 ```powershell
-python -m kb_win_sync --config "$env:USERPROFILE\kb-win-sync\config.yaml"
+kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
 
 Check:

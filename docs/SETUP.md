@@ -85,11 +85,34 @@ Never commit SSH private keys or local config files.
 
 ## Install
 
+Install the source tree in editable mode first. This exposes the shorter
+`kb-api` and `kb-win-sync` commands used below.
+
+Linux/macOS:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
+python -m unittest discover -s tests -v
+```
+
+Windows Outlook importer:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e ".[windows]"
+```
+
+If editable install is not available, use the legacy module commands instead:
+`python3 -m kb_api` and `python -m kb_win_sync`.
+
 ## First-Run Path
 
 Use this order for the first successful setup:
 
-1. Linux: run the synthetic smoke test.
+1. Install editable commands and run the synthetic smoke test.
 2. Linux: create API config and tokens.
 3. Linux: create or verify the enriched vault path, then start the API after reindex.
 4. Linux: verify `/health`, `/health?deep=true`, and `/search`.
@@ -109,17 +132,17 @@ See `docs/FIRST_RUN_UX_REVIEW.md` for the full usability review and additional i
 From the source repository:
 
 ```bash
-python3 -m unittest discover -s tests -v
+python -m unittest discover -s tests -v
 export KB_API_TOKEN='test-token'
 export KB_API_ADMIN_TOKEN='admin-token'
-python3 -m kb_api smoke-test --config examples/linux-config.fixture.yaml
+kb-api smoke-test --config examples/linux-config.fixture.yaml
 ```
 
 Create local config outside the repo:
 
 ```bash
 mkdir -p ~/.config/kb-api ~/.local/share/kb-api
-python3 -m kb_api init-config --output ~/.config/kb-api/config.yaml
+kb-api init-config --output ~/.config/kb-api/config.yaml
 ```
 
 Edit:
@@ -131,16 +154,16 @@ vim ~/.config/kb-api/config.yaml
 Validate first:
 
 ```bash
-python3 -m kb_api validate-config --config ~/.config/kb-api/config.yaml
-python3 -m kb_api doctor --config ~/.config/kb-api/config.yaml
+kb-api validate-config --config ~/.config/kb-api/config.yaml
+kb-api doctor --config ~/.config/kb-api/config.yaml
 ```
 
 After Windows has synced raw Markdown to Linux, enrich and index:
 
 ```bash
-python3 -m kb_api enrich --config ~/.config/kb-api/config.yaml
-python3 -m kb_api reindex --config ~/.config/kb-api/config.yaml
-python3 -m kb_api status --config ~/.config/kb-api/config.yaml
+kb-api enrich --config ~/.config/kb-api/config.yaml
+kb-api reindex --config ~/.config/kb-api/config.yaml
+kb-api status --config ~/.config/kb-api/config.yaml
 ```
 
 Run manually:
@@ -148,7 +171,7 @@ Run manually:
 ```bash
 export KB_API_TOKEN='replace-with-generated-token'
 export KB_API_ADMIN_TOKEN='replace-with-different-generated-token'
-python3 -m kb_api serve --config ~/.config/kb-api/config.yaml
+kb-api serve --config ~/.config/kb-api/config.yaml
 ```
 
 Verify from another shell:
@@ -202,8 +225,8 @@ Create local config outside the repo:
 
 ```powershell
 New-Item -ItemType Directory -Force "$env:USERPROFILE\kb-win-sync"
-python -m kb_win_sync init-config --output "$env:USERPROFILE\kb-win-sync\config.yaml"
-python -m kb_win_sync list-mailboxes
+kb-win-sync init-config --output "$env:USERPROFILE\kb-win-sync\config.yaml"
+kb-win-sync list-mailboxes
 notepad "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
 
@@ -218,16 +241,16 @@ Copy the generated `outlook.folders` snippets into the local config and adjust `
 Validate and preview:
 
 ```powershell
-python -m kb_win_sync validate-config --config "$env:USERPROFILE\kb-win-sync\config.yaml"
-python -m kb_win_sync doctor --config "$env:USERPROFILE\kb-win-sync\config.yaml"
-python -m kb_win_sync status --config "$env:USERPROFILE\kb-win-sync\config.yaml"
-python -m kb_win_sync --config "$env:USERPROFILE\kb-win-sync\config.yaml" --dry-run
+kb-win-sync validate-config --config "$env:USERPROFILE\kb-win-sync\config.yaml"
+kb-win-sync doctor --config "$env:USERPROFILE\kb-win-sync\config.yaml"
+kb-win-sync status --config "$env:USERPROFILE\kb-win-sync\config.yaml"
+kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml" --dry-run
 ```
 
 Run:
 
 ```powershell
-python -m kb_win_sync --config "$env:USERPROFILE\kb-win-sync\config.yaml"
+kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
 
 ### Windows Task Scheduler
@@ -270,17 +293,17 @@ Keep `sync.enabled: false` until SSH, remote path, and permissions are confirmed
 Pull or copy the new source code, then rerun tests and validation:
 
 ```bash
-python3 -m unittest discover -s tests -v
-python3 -m kb_api validate-config --config ~/.config/kb-api/config.yaml
-python3 -m kb_api reindex --config ~/.config/kb-api/config.yaml
+python -m unittest discover -s tests -v
+kb-api validate-config --config ~/.config/kb-api/config.yaml
+kb-api reindex --config ~/.config/kb-api/config.yaml
 systemctl --user restart kb-api.service
 ```
 
 On Windows, rerun:
 
 ```powershell
-python -m kb_win_sync validate-config --config "$env:USERPROFILE\kb-win-sync\config.yaml"
-python -m kb_win_sync --config "$env:USERPROFILE\kb-win-sync\config.yaml" --dry-run
+kb-win-sync validate-config --config "$env:USERPROFILE\kb-win-sync\config.yaml"
+kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml" --dry-run
 ```
 
 ## Uninstall
@@ -307,7 +330,7 @@ Do not delete your Obsidian vault unless you intentionally want to remove your p
 In Task Scheduler:
 
 1. Open Task Scheduler.
-2. Find the task that runs `run-kb-win-sync.bat` or `python -m kb_win_sync`.
+2. Find the task that runs `run-kb-win-sync.bat` or `kb-win-sync`.
 3. Disable it first.
 4. Delete it after confirming no daily import is needed.
 
@@ -339,9 +362,9 @@ If you only ran modules directly from the source checkout and did not install th
 
 After setup:
 
-- `python3 -m kb_api smoke-test --config examples/linux-config.fixture.yaml` succeeds with synthetic data.
-- `python3 -m kb_api status --config <linux-config>` shows expected notes/chunks.
-- `python -m kb_win_sync validate-config --config <windows-config>` reports no errors.
+- `kb-api smoke-test --config examples/linux-config.fixture.yaml` succeeds with synthetic data.
+- `kb-api status --config <linux-config>` shows expected notes/chunks.
+- `kb-win-sync validate-config --config <windows-config>` reports no errors.
 - No token values are printed in logs or status output.
 - No vault data, `.msg`, SQLite DB, `.env`, local config, or SSH key is inside the source repository.
 

@@ -278,13 +278,13 @@ KnowledgeVault-Enriched/20_Emails/ProjectA/example.md
 실행 계약:
 
 ```bash
-python3 -m kb_api enrich --config ~/.config/kb-api/config.yaml
+kb-api enrich --config ~/.config/kb-api/config.yaml
 ```
 
 테스트에서는 실제 Cline CLI 호출 없이 cache JSON을 사용한다.
 
 ```bash
-python3 -m kb_api enrich --config ~/.config/kb-api/config.yaml --use-cache-only
+kb-api enrich --config ~/.config/kb-api/config.yaml --use-cache-only
 ```
 
 첨부파일 정책은 `copy`로 고정한다. Raw vault의 Markdown이 아닌 파일은 enriched vault에 복사한다. Symlink는 Windows/SFTP/Obsidian 경계에서 깨질 수 있으므로 사용하지 않는다.

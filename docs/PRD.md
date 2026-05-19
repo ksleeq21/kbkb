@@ -1873,7 +1873,7 @@ Response:
 
 Command:
 
-python -m kb_win_sync --config D:\kb-tools\config.yaml
+kb-win-sync --config D:\kb-tools\config.yaml
 
 Useful options:
 
@@ -1902,8 +1902,8 @@ Acceptance criteria:
 
 Commands:
 
-python -m kb_api reindex --config ~/kb/kb-api.yaml
-python -m kb_api serve --config ~/kb/kb-api.yaml
+kb-api reindex --config ~/kb/kb-api.yaml
+kb-api serve --config ~/kb/kb-api.yaml
 
 Acceptance criteria:
 

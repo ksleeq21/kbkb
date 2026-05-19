@@ -16,8 +16,14 @@ This repository is for source code only. Do not store Obsidian vault contents, e
 Core tests and indexing use only Python standard library.
 
 ```bash
-python3 -m unittest discover -s tests -v
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
+python -m unittest discover -s tests -v
 ```
+
+After editable install, use the short commands `kb-api` and `kb-win-sync`. The
+legacy `python3 -m kb_api` and `python -m kb_win_sync` forms still work.
 
 ## 5-Minute Local Smoke Test
 
@@ -26,7 +32,7 @@ This verifies the Linux API index/search/read path with synthetic fixture data o
 ```bash
 export KB_API_TOKEN='test-token'
 export KB_API_ADMIN_TOKEN='admin-token'
-python3 -m kb_api smoke-test --config examples/linux-config.fixture.yaml
+kb-api smoke-test --config examples/linux-config.fixture.yaml
 ```
 
 Expected output includes:
@@ -37,11 +43,14 @@ reindex: ok notes=2 chunks=2
 search: ok query=SSO source=20_Emails/ProjectA/2026-05-19_0915__Synthetic_SSO__abc123.md
 read: ok title=Synthetic SSO incident analysis
 smoke-test: ok
+next: kb-api init-config --output ~/.config/kb-api/config.yaml
 ```
 
 Windows Outlook import requires optional packages on Windows:
 
 ```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 python -m pip install -e ".[windows]"
 ```
 
@@ -70,13 +79,12 @@ For the complete Windows install to Linux search workflow, see [docs/END_TO_END_
 3. Run:
 
 ```powershell
-python -m kb_win_sync init-config --output "$env:USERPROFILE\kb-win-sync\config.yaml"
-python -m kb_win_sync list-mailboxes
-python -m kb_win_sync validate-config --config "$env:USERPROFILE\kb-win-sync\config.yaml"
-python -m kb_win_sync doctor --config "$env:USERPROFILE\kb-win-sync\config.yaml"
-python -m kb_win_sync status --config "$env:USERPROFILE\kb-win-sync\config.yaml"
-python -m kb_win_sync --config "$env:USERPROFILE\kb-win-sync\config.yaml" --dry-run
-python -m kb_win_sync --config "$env:USERPROFILE\kb-win-sync\config.yaml"
+kb-win-sync init-config --output "$env:USERPROFILE\kb-win-sync\config.yaml"
+kb-win-sync list-mailboxes
+kb-win-sync doctor --config "$env:USERPROFILE\kb-win-sync\config.yaml"
+kb-win-sync status --config "$env:USERPROFILE\kb-win-sync\config.yaml"
+kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml" --dry-run
+kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
 
 Only configured Outlook folders are scanned. Unconfigured folders are ignored.
@@ -85,7 +93,7 @@ Daily execution can use Windows Task Scheduler with `examples/run-kb-win-sync.ba
 
 ## Linux API
 
-1. Copy `examples/linux-config.example.yaml` to a local path outside the repo.
+1. Generate a local config outside the repo.
 2. Set local-only tokens:
 
 ```bash
@@ -96,18 +104,17 @@ export KB_API_ADMIN_TOKEN='replace-with-admin-token'
 3. Enrich raw Markdown on Linux, then rebuild the index from the enriched Markdown vault:
 
 ```bash
-python3 -m kb_api init-config --output ~/.config/kb-api/config.yaml
-python3 -m kb_api validate-config --config /path/to/linux-config.yaml
-python3 -m kb_api doctor --config /path/to/linux-config.yaml
-python3 -m kb_api enrich --config /path/to/linux-config.yaml
-python3 -m kb_api reindex --config /path/to/linux-config.yaml
-python3 -m kb_api status --config /path/to/linux-config.yaml
+kb-api init-config --output ~/.config/kb-api/config.yaml
+kb-api doctor --config ~/.config/kb-api/config.yaml
+kb-api enrich --config ~/.config/kb-api/config.yaml
+kb-api reindex --config ~/.config/kb-api/config.yaml
+kb-api status --config ~/.config/kb-api/config.yaml
 ```
 
 4. Start the API:
 
 ```bash
-python3 -m kb_api serve --config /path/to/linux-config.yaml
+kb-api serve --config ~/.config/kb-api/config.yaml
 ```
 
 Endpoints:

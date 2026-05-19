@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -35,11 +36,18 @@ class CliUsabilityTests(unittest.TestCase):
         self.assertIn("doctor: kb_api", doctor.stdout)
         self.assertIn("next:", doctor.stdout)
 
+    def test_console_script_entrypoints_are_declared(self) -> None:
+        pyproject = tomllib.loads((Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(encoding="utf-8"))
+        scripts = pyproject["project"]["scripts"]
+        self.assertEqual(scripts["kb-api"], "kb_api.__main__:main")
+        self.assertEqual(scripts["kb-win-sync"], "kb_win_sync.__main__:main")
+
     def test_api_init_config_creates_file_and_refuses_overwrite(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp) / "config.yaml"
             result = self.run_cmd([sys.executable, "-m", "kb_api", "init-config", "--output", str(output)])
             self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+            self.assertIn("kb-api doctor", result.stdout)
             self.assertIn("vault_path:", output.read_text(encoding="utf-8"))
             second = self.run_cmd([sys.executable, "-m", "kb_api", "init-config", "--output", str(output)])
             self.assertEqual(second.returncode, 2)
@@ -72,6 +80,7 @@ class CliUsabilityTests(unittest.TestCase):
             output = Path(tmp) / "config.yaml"
             result = self.run_cmd([sys.executable, "-m", "kb_win_sync", "init-config", "--output", str(output)])
             self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+            self.assertIn("kb-win-sync doctor", result.stdout)
             text = output.read_text(encoding="utf-8")
             self.assertIn("outlook:", text)
             self.assertIn("sync:", text)
