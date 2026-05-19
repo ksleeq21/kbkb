@@ -25,6 +25,7 @@ class SyncConfig:
     username: str = ""
     remote_path: str = ""
     key_path: str = ""
+    manifest_path: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -77,6 +78,7 @@ def parse_config(data: dict[str, Any]) -> WinConfig:
         username=str(sync_data.get("username", "")),
         remote_path=str(sync_data.get("remote_path", "")),
         key_path=str(sync_data.get("key_path", "")),
+        manifest_path=Path(str(sync_data["manifest_path"])) if sync_data.get("manifest_path") else None,
     )
     return WinConfig(
         vault_path=Path(str(data["vault_path"])),

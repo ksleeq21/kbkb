@@ -44,7 +44,8 @@ class OutlookClient:
                 conversation_id=str(getattr(item, "ConversationID", "") or ""),
                 message_id=_property(item, "http://schemas.microsoft.com/mapi/proptag/0x1035001E"),
                 tags=folder.tags,
-                attachments=[EmailAttachment(str(att.FileName)) for att in getattr(item, "Attachments", [])],
+                attachments=[EmailAttachment(str(att.FileName), saver=_attachment_saver(att)) for att in getattr(item, "Attachments", [])],
+                original_msg_saver=_message_saver(item),
             )
 
     def list_mail_folders(self, max_depth: int = 6) -> list[OutlookFolderInfo]:
@@ -93,3 +94,17 @@ def _property(item, uri: str) -> str:
         return str(item.PropertyAccessor.GetProperty(uri) or "")
     except Exception:
         return ""
+
+
+def _attachment_saver(attachment):
+    def save(path) -> None:
+        attachment.SaveAsFile(str(path))
+
+    return save
+
+
+def _message_saver(item):
+    def save(path) -> None:
+        item.SaveAs(str(path), 3)  # olMSG
+
+    return save

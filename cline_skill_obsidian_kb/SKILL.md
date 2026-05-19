@@ -16,9 +16,9 @@ Scripts:
 
 - `scripts/kb_search.py "query"` searches the KB.
 - `scripts/kb_search.py "query" --limit 5 --json` prints the raw contract response.
-- `scripts/kb_search.py "query" --type email --sender "Kim <kim@example.test>" --folder "ProjectA"` applies supported filters.
+- `scripts/kb_search.py "query" --type email --tag project/project-a --sender "Kim <kim@example.test>" --folder "ProjectA" --after 2026-01-01 --before 2026-12-31` applies supported filters.
 - `scripts/kb_read.py "relative/path.md"` reads a specific note.
-- `scripts/kb_context.py "question"` returns compact evidence for AI use.
+- `scripts/kb_context.py "question" --type email --tag project/project-a` returns compact evidence for AI use.
 
 Contract:
 

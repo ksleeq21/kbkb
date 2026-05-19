@@ -44,12 +44,18 @@ class IndexStatus:
     notes: int = 0
     chunks: int = 0
     newest_received: str = ""
+    fts_tokenizer: str = ""
 
 
-SCHEMA = """
+SCHEMA_TEMPLATE = """
 DROP TABLE IF EXISTS chunks_fts;
 DROP TABLE IF EXISTS chunks;
 DROP TABLE IF EXISTS notes;
+DROP TABLE IF EXISTS index_meta;
+CREATE TABLE index_meta (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
 CREATE TABLE notes (
   id TEXT PRIMARY KEY,
   path TEXT NOT NULL UNIQUE,
@@ -70,7 +76,7 @@ CREATE TABLE chunks (
   text TEXT NOT NULL,
   FOREIGN KEY(note_id) REFERENCES notes(id)
 );
-CREATE VIRTUAL TABLE chunks_fts USING fts5(text, note_id UNINDEXED, chunk_id UNINDEXED);
+CREATE VIRTUAL TABLE chunks_fts USING fts5(text, note_id UNINDEXED, chunk_id UNINDEXED{tokenizer_clause});
 """
 
 
@@ -80,7 +86,8 @@ def reindex(config: ApiConfig) -> ReindexStats:
     database_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(database_path)
     try:
-        conn.executescript(SCHEMA)
+        tokenizer = _create_schema(conn)
+        conn.execute("INSERT INTO index_meta(key, value) VALUES ('fts_tokenizer', ?)", (tokenizer,))
         note_count = 0
         chunk_count = 0
         for path in scan_markdown(vault_path, config.ignore_dirs):
@@ -177,6 +184,18 @@ def search(config: ApiConfig, query: str, limit: int = 10, filters: dict[str, An
         if filters.get(key):
             sql += f" AND notes.{column} = ?"
             params.append(str(filters[key]))
+    tag = filters.get("tag") or filters.get("tags")
+    if isinstance(tag, list):
+        tag = tag[0] if tag else ""
+    if tag:
+        sql += " AND notes.tags_json LIKE ?"
+        params.append(f'%"{str(tag)}"%')
+    if filters.get("after"):
+        sql += " AND notes.received >= ?"
+        params.append(_date_bound(str(filters["after"]), start=True))
+    if filters.get("before"):
+        sql += " AND notes.received <= ?"
+        params.append(_date_bound(str(filters["before"]), start=False))
     sql += " ORDER BY score LIMIT ?"
     params.append(max(1, min(int(limit), 50)))
     try:
@@ -204,7 +223,29 @@ def index_status(config: ApiConfig) -> IndexStatus:
         notes = int(conn.execute("SELECT COUNT(*) FROM notes").fetchone()[0])
         chunks = int(conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0])
         newest = conn.execute("SELECT MAX(received) FROM notes").fetchone()[0] or ""
-    return IndexStatus(database_exists=True, notes=notes, chunks=chunks, newest_received=str(newest))
+        tokenizer = ""
+        try:
+            row = conn.execute("SELECT value FROM index_meta WHERE key = 'fts_tokenizer'").fetchone()
+            tokenizer = str(row[0]) if row else ""
+        except sqlite3.OperationalError:
+            tokenizer = ""
+    return IndexStatus(database_exists=True, notes=notes, chunks=chunks, newest_received=str(newest), fts_tokenizer=tokenizer)
+
+
+def _create_schema(conn: sqlite3.Connection) -> str:
+    try:
+        conn.executescript(SCHEMA_TEMPLATE.format(tokenizer_clause=", tokenize = 'trigram'"))
+        return "trigram"
+    except sqlite3.OperationalError:
+        conn.executescript(SCHEMA_TEMPLATE.format(tokenizer_clause=""))
+        return "default"
+
+
+def _date_bound(value: str, *, start: bool) -> str:
+    stripped = value.strip()
+    if len(stripped) == 10 and stripped[4] == "-" and stripped[7] == "-":
+        return stripped + ("T00:00:00" if start else "T23:59:59")
+    return stripped
 
 
 def safe_relative_path(path: str) -> str:

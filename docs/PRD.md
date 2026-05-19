@@ -510,7 +510,15 @@ Original .msg is saved when save_msg: true.
 
 The saved file can be opened by Outlook.
 
+The Markdown frontmatter includes the vault-relative original_msg path.
+
+The Markdown Attachments section links the saved .msg path.
+
 Failures to save .msg are logged but do not stop the entire import.
+
+Implementation note:
+
+The current config model exposes `save_msg`, but quality-complete behavior requires the Outlook adapter to pass through a save hook for the source MailItem and the importer to write the `.msg` artifact before rendering Markdown. Tests should use a fake Outlook item or fake artifact writer so this behavior is verified without requiring Outlook on CI.
 
 
 FR-WIN-007: Save Attachments
@@ -533,7 +541,13 @@ Attachment paths are recorded in frontmatter.
 
 Attachment paths are linked in the Markdown body.
 
+Attachment and .msg counters in the import summary reflect actual saved artifacts.
+
 Failures to save individual attachments are logged.
+
+Implementation note:
+
+The importer must save attachments before calling the Markdown renderer so `EmailAttachment.saved_path` is populated. Attachment save failures should be per-file failures, not run-level failures, unless the vault itself is not writable.
 
 
 FR-WIN-008: Duplicate Import Prevention
@@ -662,7 +676,7 @@ New files are copied to Linux.
 
 Changed files are copied to Linux.
 
-Unchanged files are not repeatedly copied if incremental sync is implemented.
+Unchanged files are not repeatedly copied after the manifest feature is enabled.
 
 Sync does not require GitHub.
 
@@ -675,7 +689,7 @@ Sync can be disabled in config for testing.
 
 FR-WIN-013: Incremental Sync Manifest
 
-The app should maintain a sync manifest to avoid copying all files every time.
+The app must maintain a sync manifest to avoid copying all files every time after the first successful sync.
 
 Recommended manifest path:
 
@@ -697,11 +711,17 @@ The app calculates file hashes or reliable modified metadata.
 
 The app identifies new and changed files.
 
-The app uploads only changed files when possible.
+The app uploads only new or changed files after the first manifest has been written.
 
 The app stores the manifest safely.
 
-Initial version may use full sync if incremental sync is explicitly deferred.
+The manifest write is atomic where possible.
+
+If sync fails midway, the previous manifest is preserved and the next run retries unsynced files.
+
+Quality note:
+
+The implementation must connect `file_digest`, `load_manifest`, and `save_manifest` to `SftpSyncer.sync` so upload eligibility is decided by manifest diffing, not by a blind full-vault upload.
 
 
 8.2 Linux App: kb-api
@@ -818,6 +838,10 @@ Content is searchable.
 
 Reindex can rebuild the database from vault contents.
 
+Search quality requirement:
+
+The indexer should prefer FTS5 `trigram` when the local SQLite build supports it, because Korean compound words and partial strings are common in this knowledge base. If trigram is unavailable, the app must fall back to the default tokenizer and make that fallback visible in diagnostics or logs.
+
 
 FR-LINUX-005: Full-Text Search API
 
@@ -868,7 +892,9 @@ Search returns relevant notes.
 
 Search result includes path, title, type, metadata, score, and excerpt.
 
-Search supports filtering by type, tag, sender, folder, and date where implemented.
+Search supports filtering by type, tag, sender, folder, after, and before.
+
+Type, tag, sender, folder, after, and before filters are implemented consistently in `/search`, `/context`, and skill scripts.
 
 Search does not expose files outside the configured vault.
 
@@ -1095,7 +1121,7 @@ Acceptance criteria:
 
 The script calls POST /context.
 
-The script supports query and optional filters if implemented.
+The script supports query, limit, type, tag, sender, folder, after, and before filters.
 
 The script prints source evidence.
 

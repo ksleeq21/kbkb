@@ -3,12 +3,14 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 from .config import load_config
+from .email_model import EmailAttachment, EmailMessage
 from .diagnostics import doctor_lines, status_lines, validate_config
 from .outlook import OutlookClient, OutlookUnavailable
-from .render import message_key, render_markdown, target_path
+from .render import message_key, render_markdown, sanitize_filename, target_path
 from .state import StateStore
 from .sync import SftpSyncer
 from .templates import WINDOWS_CONFIG_TEMPLATE
@@ -53,6 +55,59 @@ def _print_folder_config_snippets(paths: list[str]) -> None:
         print(f'        - "mailbox/{slug}"')
         print("      save_msg: true")
         print("      save_attachments: true")
+
+
+def save_email_artifacts(email: EmailMessage, vault_path: Path, *, save_msg: bool, save_attachments: bool) -> tuple[EmailMessage, int, int]:
+    key = message_key(email)
+    artifact_dir_rel = Path("90_Attachments") / "email" / key
+    artifact_dir = vault_path / artifact_dir_rel
+    saved_attachments: list[EmailAttachment] = []
+    attachment_count = 0
+    used_names: dict[str, int] = {}
+    if save_attachments:
+        for attachment in email.attachments:
+            rel = artifact_dir_rel / _unique_attachment_name(attachment.filename, used_names)
+            if attachment.saver is None:
+                logging.warning("Attachment has no save hook message_key=%s filename=%s", key, attachment.filename)
+                saved_attachments.append(attachment)
+                continue
+            try:
+                (vault_path / rel).parent.mkdir(parents=True, exist_ok=True)
+                attachment.saver(vault_path / rel)
+                saved_attachments.append(replace(attachment, saved_path=rel.as_posix()))
+                attachment_count += 1
+            except Exception as exc:
+                logging.error("Attachment save failed message_key=%s filename=%s error=%s", key, attachment.filename, exc)
+                saved_attachments.append(attachment)
+    else:
+        saved_attachments = list(email.attachments)
+
+    original_msg = email.original_msg
+    msg_count = 0
+    if save_msg and email.original_msg_saver is not None:
+        rel = artifact_dir_rel / "original.msg"
+        try:
+            artifact_dir.mkdir(parents=True, exist_ok=True)
+            email.original_msg_saver(vault_path / rel)
+            original_msg = rel.as_posix()
+            msg_count = 1
+        except Exception as exc:
+            logging.error("Original .msg save failed message_key=%s error=%s", key, exc)
+    elif save_msg:
+        logging.warning("Original .msg has no save hook message_key=%s", key)
+    return replace(email, attachments=saved_attachments, original_msg=original_msg), attachment_count, msg_count
+
+
+def _unique_attachment_name(filename: str, used_names: dict[str, int]) -> str:
+    safe = Path(filename).name
+    safe = sanitize_filename(safe, "attachment")
+    stem = Path(safe).stem
+    suffix = Path(safe).suffix
+    count = used_names.get(safe, 0)
+    used_names[safe] = count + 1
+    if count == 0:
+        return safe
+    return f"{stem}-{count + 1}{suffix}"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -177,11 +232,19 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"import key={key} sender={email.sender!r} received={email.received!r} subject={email.subject!r} target={path}")
                     continue
                 try:
+                    email, attachments_saved, msg_saved = save_email_artifacts(
+                        email,
+                        config.vault_path,
+                        save_msg=folder.save_msg,
+                        save_attachments=folder.save_attachments,
+                    )
                     output = config.vault_path / Path(path)
                     output.parent.mkdir(parents=True, exist_ok=True)
                     output.write_text(render_markdown(email, folder.target_folder), encoding="utf-8")
                     state.mark_imported(key, path)
                     summary["imported"] += 1
+                    summary["attachments_saved"] += attachments_saved
+                    summary["msg_saved"] += msg_saved
                 except OSError as exc:
                     summary["failed"] += 1
                     logging.error("Import failed for message_key=%s target=%s error=%s", key, path, exc)

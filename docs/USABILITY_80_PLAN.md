@@ -158,7 +158,7 @@
 
 작업:
 
-- `kb_search.py`에 `--json`, `--limit`, `--type`, `--sender`, `--folder` 옵션을 추가한다.
+- `kb_search.py`에 `--json`, `--limit`, `--type`, `--tag`, `--sender`, `--folder`, `--after`, `--before` 옵션을 추가한다.
 - `kb_context.py` 출력 형식을 "Evidence N" 블록으로 정리한다.
 - API 연결 실패, token 누락, unauthorized, not found 오류를 사람이 읽기 좋은 메시지로 변환한다.
 - 모든 스크립트가 stderr에는 진단, stdout에는 결과만 출력하도록 정리한다.
@@ -258,16 +258,23 @@ Started:
 - `/health?deep=true` returns database/index status.
 - `/search` results now expose sender, received, folder, tags, chunk index, and matched fields at top level.
 - API error responses now use structured JSON for unauthorized, bad request, not found, database missing, and invalid query cases.
-- Skill scripts now check `KB_API_TOKEN`, report API errors without printing token values, and `kb_search.py` supports `--json`, `--limit`, `--type`, `--sender`, and `--folder`.
+- Skill scripts now check `KB_API_TOKEN`, report API errors without printing token values, and `kb_search.py` supports `--json`, `--limit`, `--type`, `--tag`, `--sender`, `--folder`, `--after`, and `--before`.
 - CLI usability regression tests cover smoke test, validation, status, and missing-token behavior.
+
+Completed in current implementation:
+
+- Full Outlook attachment and `.msg` save hooks with fake adapter tests.
+- Manifest-backed incremental SFTP sync so unchanged files are not uploaded every run.
+- Broader search filters: tag, after, and before, wired through `/search`, `/context`, and skill scripts.
+- Search quality fallback reporting for FTS5 trigram support through `status`, `/health?deep=true`, and DB metadata.
+- FastAPI optional deployment matches the stdlib server's structured error shape for explicit HTTP errors.
 
 Remaining:
 
-- Full Outlook attachment and `.msg` save hooks with fake adapter tests.
 - Richer Windows import summary after actual Outlook integration testing.
 - Highlight-friendly snippets around matched terms.
 - Run-id logging across Windows import/sync.
-- First-run documentation improvements listed in `docs/FIRST_RUN_UX_REVIEW.md`, especially Windows/Linux role separation, Task Scheduler step-by-step setup, SFTP preflight, and troubleshooting matrix.
+- First-run documentation improvements listed in `docs/FIRST_RUN_UX_REVIEW.md` are mostly implemented; keep them synced as CLI output changes.
 
 ### Milestone A: Setup Confidence
 
@@ -286,6 +293,8 @@ Remaining:
 - dry-run/import summary
 - API deep health
 - DB missing/empty query 오류 개선
+- `.msg`/attachment artifact save summary - implemented
+- incremental sync manifest and retry-safe manifest writes - implemented
 
 ### Milestone C: AI Consumer Polish
 
@@ -294,4 +303,6 @@ Remaining:
 - skill script 옵션/JSON 출력
 - context evidence 출력 개선
 - search metadata 확장
+- tag/date filters - implemented
+- trigram support detection and fallback reporting - implemented
 - 운영 문서와 regression tests 정리

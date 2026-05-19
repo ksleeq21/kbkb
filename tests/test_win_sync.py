@@ -3,12 +3,14 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from pathlib import Path
 
-from kb_win_sync.__main__ import parse_mailbox_selection
+from kb_win_sync.__main__ import parse_mailbox_selection, save_email_artifacts
 from kb_win_sync.config import load_config, parse_config
 from kb_win_sync.email_model import EmailAttachment, EmailMessage
 from kb_win_sync.render import message_key, render_markdown, sanitize_filename, target_path
 from kb_win_sync.state import ImportState, StateStore
+from kb_win_sync.sync import build_incremental_sync_plan, load_manifest, save_manifest
 
 
 class WinSyncTests(unittest.TestCase):
@@ -73,6 +75,58 @@ class WinSyncTests(unittest.TestCase):
         self.assertIn("## Metadata", md)
         self.assertIn("## Body", md)
         self.assertIn("[[90_Attachments/email/key/report.txt]]", md)
+
+    def test_artifact_saving_populates_markdown_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            def write_text(value: str):
+                def saver(path: Path) -> None:
+                    path.write_text(value, encoding="utf-8")
+
+                return saver
+
+            email = EmailMessage(
+                subject="Artifacts",
+                sender="Kim <kim@example.test>",
+                received="2026-05-19T09:15:00+09:00",
+                body="body",
+                conversation_id="conv",
+                message_id="message-id",
+                attachments=[
+                    EmailAttachment("report?.txt", saver=write_text("a")),
+                    EmailAttachment("report?.txt", saver=write_text("b")),
+                ],
+                original_msg_saver=write_text("msg"),
+            )
+            saved, attachments_saved, msg_saved = save_email_artifacts(
+                email,
+                Path(tmp),
+                save_msg=True,
+                save_attachments=True,
+            )
+            key = message_key(email)
+            self.assertEqual(attachments_saved, 2)
+            self.assertEqual(msg_saved, 1)
+            self.assertEqual(saved.attachments[0].saved_path, f"90_Attachments/email/{key}/report_.txt")
+            self.assertEqual(saved.attachments[1].saved_path, f"90_Attachments/email/{key}/report_-2.txt")
+            self.assertEqual(saved.original_msg, f"90_Attachments/email/{key}/original.msg")
+            self.assertTrue((Path(tmp) / saved.attachments[0].saved_path).exists())
+            self.assertTrue((Path(tmp) / saved.original_msg).exists())
+
+    def test_incremental_sync_manifest_tracks_changed_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "a.md").write_text("one", encoding="utf-8")
+            (root / ".kb-sync-manifest.json").write_text("{}", encoding="utf-8")
+            plan, manifest = build_incremental_sync_plan(root, {})
+            self.assertEqual([path.name for path in plan.files], ["a.md"])
+            save_manifest(root / ".kb-sync-manifest.json", manifest)
+            self.assertEqual(load_manifest(root / ".kb-sync-manifest.json"), manifest)
+
+            plan, manifest = build_incremental_sync_plan(root, manifest)
+            self.assertEqual(plan.files, [])
+            (root / "a.md").write_text("two", encoding="utf-8")
+            plan, manifest = build_incremental_sync_plan(root, manifest)
+            self.assertEqual([path.name for path in plan.files], ["a.md"])
 
 
 if __name__ == "__main__":

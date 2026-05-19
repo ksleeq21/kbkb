@@ -71,6 +71,7 @@ def status_lines(config: ApiConfig) -> list[str]:
         f"notes: {status.notes}",
         f"chunks: {status.chunks}",
         f"newest_received: {status.newest_received or '(none)'}",
+        f"fts_tokenizer: {status.fts_tokenizer or '(unknown)'}",
         f"token_env: {config.token_env} set={bool(os.environ.get(config.token_env))}",
         f"admin_token_env: {config.admin_token_env} set={bool(os.environ.get(config.admin_token_env))}",
     ]

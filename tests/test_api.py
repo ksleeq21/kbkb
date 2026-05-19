@@ -10,7 +10,7 @@ from urllib.request import Request, urlopen
 from kb_api.config import ApiConfig, load_config
 from kb_api.enrichment import enrich_vault, render_enriched_markdown, validate_llm_metadata
 from kb_api.frontmatter import parse_markdown
-from kb_api.indexer import read_by_path, reindex, safe_relative_path, search
+from kb_api.indexer import index_status, read_by_path, reindex, safe_relative_path, search
 from kb_api.scanner import scan_markdown
 from kb_api.server import serve
 
@@ -34,6 +34,7 @@ class ApiTests(unittest.TestCase):
             stats = reindex(config)
             self.assertEqual(stats.notes, 2)
             self.assertGreaterEqual(stats.chunks, 2)
+            self.assertIn(index_status(config).fts_tokenizer, {"trigram", "default"})
             results = search(config, "SSO")
             self.assertTrue(results[0]["path"].startswith("20_Emails/"))
             self.assertIn("sender", results[0])
@@ -41,6 +42,10 @@ class ApiTests(unittest.TestCase):
             self.assertIn("matched_fields", results[0])
             note = read_by_path(config, results[0]["path"])
             self.assertIn("Synthetic SSO", note["title"])
+            self.assertTrue(search(config, "SSO", filters={"tag": "project/project-a"}))
+            self.assertTrue(search(config, "SSO", filters={"after": "2026-05-19", "before": "2026-05-19"}))
+            self.assertEqual(search(config, "SSO", filters={"tag": "missing"}), [])
+            self.assertEqual(search(config, "SSO", filters={"before": "2026-01-01"}), [])
             with self.assertRaises(ValueError):
                 safe_relative_path("../secret")
             with self.assertRaises(ValueError):

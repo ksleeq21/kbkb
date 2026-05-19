@@ -18,4 +18,5 @@ sync:
   username: "your-linux-user"
   remote_path: "/home/your-linux-user/kb/KnowledgeVault-Raw"
   key_path: "C:/Users/you/.ssh/id_rsa"
+  manifest_path: "D:/KnowledgeVault/.kb-sync-manifest.json"
 """

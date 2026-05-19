@@ -74,7 +74,8 @@ Response:
   "database_exists": true,
   "notes": 2,
   "chunks": 2,
-  "newest_received": "2026-05-19T09:15:00+09:00"
+  "newest_received": "2026-05-19T09:15:00+09:00",
+  "fts_tokenizer": "trigram"
 }
 ```
 
@@ -89,7 +90,7 @@ python3 cline_skill_obsidian_kb/scripts/kb_search.py "query"
 Request:
 
 ```http
-GET /search?q=<query>&limit=10&type=email&sender=Kim&folder=ProjectA
+GET /search?q=<query>&limit=10&type=email&tag=project/project-a&sender=Kim&folder=ProjectA&after=2026-01-01&before=2026-12-31
 ```
 
 Required query parameters:
@@ -100,8 +101,11 @@ Optional query parameters:
 
 - `limit`: integer, clamped by the server.
 - `type`: exact note type filter.
+- `tag`: exact tag filter; a note matches when its `tags` array contains the value.
 - `sender`: exact sender filter.
 - `folder`: exact folder filter.
+- `after`: inclusive ISO date or datetime lower bound for `received`.
+- `before`: inclusive ISO date or datetime upper bound for `received`.
 
 Response:
 
@@ -207,7 +211,10 @@ Body:
   "query": "SSO incident",
   "limit": 5,
   "filters": {
-    "type": "email"
+    "type": "email",
+    "tag": "project/project-a",
+    "after": "2026-01-01",
+    "before": "2026-12-31"
   }
 }
 ```
@@ -270,3 +277,7 @@ Known codes:
 - `not_found`
 - `database_not_indexed`
 - `invalid_query`
+
+Implementation requirement:
+
+Both the standard-library server and the optional FastAPI deployment must return this same top-level `error` object. Framework-native shapes such as FastAPI's default `{"detail": ...}` are not contract-compatible for v1 endpoints.

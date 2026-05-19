@@ -36,6 +36,7 @@ class KbHandler(BaseHTTPRequestHandler):
                         "notes": status.notes,
                         "chunks": status.chunks,
                         "newest_received": status.newest_received,
+                        "fts_tokenizer": status.fts_tokenizer,
                     },
                 )
             else:
@@ -50,7 +51,7 @@ class KbHandler(BaseHTTPRequestHandler):
                     self.api_config,
                     qs.get("q", [""])[0],
                     int(qs.get("limit", ["10"])[0]),
-                    {k: v[0] for k, v in qs.items() if k in {"type", "sender", "folder"}},
+                    {k: v[0] for k, v in qs.items() if k in {"type", "tag", "sender", "folder", "after", "before"}},
                 )
                 self._json(200, {"results": results})
                 return
@@ -75,12 +76,19 @@ class KbHandler(BaseHTTPRequestHandler):
             self._json(401, {"error": {"code": "unauthorized", "message": "Missing or invalid bearer token"}})
             return
         length = int(self.headers.get("Content-Length", "0") or "0")
-        body = json.loads(self.rfile.read(length) or b"{}")
+        try:
+            body = json.loads(self.rfile.read(length) or b"{}")
+        except json.JSONDecodeError:
+            self._json(400, {"error": {"code": "bad_request", "message": "Request body must be valid JSON"}})
+            return
         try:
             if parsed.path == "/context":
                 results = search(self.api_config, str(body.get("query", "")), int(body.get("limit", 5)), body.get("filters") or {})
             else:
                 results = []
+        except ValueError as exc:
+            self._json(400, {"error": {"code": "bad_request", "message": str(exc)}})
+            return
         except KbApiError as exc:
             self._json(exc.status, {"error": {"code": exc.code, "message": exc.message, "hint": exc.hint}})
             return
