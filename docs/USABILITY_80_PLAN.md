@@ -267,6 +267,7 @@ Remaining:
 - Richer Windows import summary after actual Outlook integration testing.
 - Highlight-friendly snippets around matched terms.
 - Run-id logging across Windows import/sync.
+- First-run documentation improvements listed in `docs/FIRST_RUN_UX_REVIEW.md`, especially Windows/Linux role separation, Task Scheduler step-by-step setup, SFTP preflight, and troubleshooting matrix.
 
 ### Milestone A: Setup Confidence
 

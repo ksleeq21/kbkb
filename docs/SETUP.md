@@ -89,6 +89,23 @@ Never commit SSH private keys or local config files.
 
 ## Install
 
+## First-Run Path
+
+Use this order for the first successful setup:
+
+1. Linux: run the synthetic smoke test.
+2. Linux: create API config and tokens.
+3. Linux: reindex and start the API.
+4. Linux: verify `/health`, `/health?deep=true`, and `/search`.
+5. Windows: create Outlook import config.
+6. Windows: validate config and run `--dry-run`.
+7. Windows: run import manually once.
+8. Windows: enable Task Scheduler only after manual import works.
+9. Linux: reindex the synced vault.
+10. Cline/Codex: run `kb_search.py` against the API.
+
+See `docs/FIRST_RUN_UX_REVIEW.md` for the full usability review and additional improvement candidates.
+
 ### Linux API
 
 From the source repository:
@@ -104,7 +121,7 @@ Create local config outside the repo:
 
 ```bash
 mkdir -p ~/.config/kb-api ~/.local/share/kb-api
-cp examples/linux-config.example.yaml ~/.config/kb-api/config.yaml
+python3 -m kb_api init-config --output ~/.config/kb-api/config.yaml
 ```
 
 Edit:
@@ -117,6 +134,7 @@ Validate and index:
 
 ```bash
 python3 -m kb_api validate-config --config ~/.config/kb-api/config.yaml
+python3 -m kb_api doctor --config ~/.config/kb-api/config.yaml
 python3 -m kb_api reindex --config ~/.config/kb-api/config.yaml
 python3 -m kb_api status --config ~/.config/kb-api/config.yaml
 ```
@@ -127,6 +145,14 @@ Run manually:
 export KB_API_TOKEN='replace-with-generated-token'
 export KB_API_ADMIN_TOKEN='replace-with-different-generated-token'
 python3 -m kb_api serve --config ~/.config/kb-api/config.yaml
+```
+
+Verify from another shell:
+
+```bash
+curl -sS http://127.0.0.1:8765/health
+curl -sS 'http://127.0.0.1:8765/health?deep=true'
+curl -sS 'http://127.0.0.1:8765/search?q=SSO' -H "Authorization: Bearer $KB_API_TOKEN"
 ```
 
 ### Linux systemd Service
@@ -172,7 +198,7 @@ Create local config outside the repo:
 
 ```powershell
 New-Item -ItemType Directory -Force "$env:USERPROFILE\kb-win-sync"
-Copy-Item examples\windows-config.example.yaml "$env:USERPROFILE\kb-win-sync\config.yaml"
+python -m kb_win_sync init-config --output "$env:USERPROFILE\kb-win-sync\config.yaml"
 notepad "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
 
@@ -180,6 +206,7 @@ Validate and preview:
 
 ```powershell
 python -m kb_win_sync validate-config --config "$env:USERPROFILE\kb-win-sync\config.yaml"
+python -m kb_win_sync doctor --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 python -m kb_win_sync status --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 python -m kb_win_sync --config "$env:USERPROFILE\kb-win-sync\config.yaml" --dry-run
 ```
@@ -192,6 +219,8 @@ python -m kb_win_sync --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 
 ### Windows Task Scheduler
 
+For detailed Outlook folder selection and Task Scheduler GUI steps, see `docs/WINDOWS_OUTLOOK_SETUP.md`.
+
 Use `examples/run-kb-win-sync.bat` as the action target after editing the config path inside the script or matching the default path.
 
 Recommended settings:
@@ -200,6 +229,25 @@ Recommended settings:
 - Start in the repository directory or the installed package environment.
 - Run daily after Outlook is normally available.
 - Capture stdout/stderr through Task Scheduler history or redirect in a local wrapper script outside the repo.
+
+Register the schedule only after manual `--dry-run` and manual import both work.
+
+### SFTP Sync Preflight
+
+Before setting `sync.enabled: true`, verify SSH/SFTP independently from Windows:
+
+```powershell
+ssh your-linux-user@linux-dev.example.internal
+```
+
+On Linux, verify the remote vault directory exists and is writable:
+
+```bash
+mkdir -p /home/your-linux-user/kb/KnowledgeVault
+test -w /home/your-linux-user/kb/KnowledgeVault
+```
+
+Keep `sync.enabled: false` until SSH, remote path, and permissions are confirmed. Do not use GitHub as a sync backend.
 
 ## Upgrade
 

@@ -57,6 +57,31 @@ def status_lines(config: ApiConfig) -> list[str]:
     ]
 
 
+def doctor_lines(config: ApiConfig) -> tuple[list[str], bool]:
+    lines = ["doctor: kb_api"]
+    check = validate_config(config)
+    if check.errors:
+        lines.append("validate-config: failed")
+        lines.extend(f"ERROR: {item}" for item in check.errors)
+    else:
+        lines.append("validate-config: ok")
+    lines.extend(f"WARNING: {item}" for item in check.warnings)
+    lines.append("status:")
+    lines.extend(f"  {line}" for line in status_lines(config))
+    status = index_status(config)
+    lines.append("next:")
+    if check.errors:
+        lines.append("  Fix config errors, then rerun: python3 -m kb_api doctor --config <config>")
+    elif not status.database_exists:
+        lines.append("  Run: python3 -m kb_api reindex --config <config>")
+    elif not os.environ.get(config.token_env):
+        lines.append(f"  Set token env var before serving: export {config.token_env}=<token>")
+    else:
+        lines.append("  Start API: python3 -m kb_api serve --config <config>")
+        lines.append("  Verify: curl -sS http://127.0.0.1:8765/health")
+    return lines, check.ok
+
+
 def smoke_test(config: ApiConfig) -> list[str]:
     lines = [
         f"python: {platform.python_version()}",

@@ -30,6 +30,21 @@ class CliUsabilityTests(unittest.TestCase):
         self.assertEqual(status.returncode, 0, status.stderr + status.stdout)
         self.assertIn("notes:", status.stdout)
 
+        doctor = self.run_cmd([sys.executable, "-m", "kb_api", "doctor", "--config", "examples/linux-config.fixture.yaml"], env)
+        self.assertEqual(doctor.returncode, 0, doctor.stderr + doctor.stdout)
+        self.assertIn("doctor: kb_api", doctor.stdout)
+        self.assertIn("next:", doctor.stdout)
+
+    def test_api_init_config_creates_file_and_refuses_overwrite(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "config.yaml"
+            result = self.run_cmd([sys.executable, "-m", "kb_api", "init-config", "--output", str(output)])
+            self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+            self.assertIn("vault_path:", output.read_text(encoding="utf-8"))
+            second = self.run_cmd([sys.executable, "-m", "kb_api", "init-config", "--output", str(output)])
+            self.assertEqual(second.returncode, 2)
+            self.assertIn("already exists", second.stderr)
+
     def test_api_validate_reports_missing_vault(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             config = Path(tmp) / "bad.yaml"
@@ -46,6 +61,23 @@ class CliUsabilityTests(unittest.TestCase):
         status = self.run_cmd([sys.executable, "-m", "kb_win_sync", "status", "--config", "examples/windows-config.example.yaml"])
         self.assertEqual(status.returncode, 0, status.stderr + status.stdout)
         self.assertIn("configured_folders: 1", status.stdout)
+
+        doctor = self.run_cmd([sys.executable, "-m", "kb_win_sync", "doctor", "--config", "examples/windows-config.example.yaml"])
+        self.assertEqual(doctor.returncode, 0, doctor.stderr + doctor.stdout)
+        self.assertIn("doctor: kb_win_sync", doctor.stdout)
+        self.assertIn("Preview import", doctor.stdout)
+
+    def test_win_init_config_creates_file_and_refuses_overwrite(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "config.yaml"
+            result = self.run_cmd([sys.executable, "-m", "kb_win_sync", "init-config", "--output", str(output)])
+            self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+            text = output.read_text(encoding="utf-8")
+            self.assertIn("outlook:", text)
+            self.assertIn("sync:", text)
+            second = self.run_cmd([sys.executable, "-m", "kb_win_sync", "init-config", "--output", str(output)])
+            self.assertEqual(second.returncode, 2)
+            self.assertIn("already exists", second.stderr)
 
     def test_skill_script_reports_missing_token_without_leaking_value(self) -> None:
         env = os.environ.copy()

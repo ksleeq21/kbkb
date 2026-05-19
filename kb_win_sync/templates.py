@@ -1,0 +1,21 @@
+WINDOWS_CONFIG_TEMPLATE = """vault_path: "D:/KnowledgeVault"
+state_path: "C:/Users/you/AppData/Local/kb-win-sync/state/import-state.json"
+log_path: "C:/Users/you/AppData/Local/kb-win-sync/logs/kb-win-sync.log"
+outlook:
+  folders:
+    - name: "project-a"
+      outlook_path: "\\\\Mailbox - User Name\\\\Inbox\\\\_KB\\\\ProjectA"
+      target_folder: "20_Emails/ProjectA"
+      tags:
+        - "email"
+        - "project/project-a"
+      save_msg: true
+      save_attachments: true
+sync:
+  enabled: false
+  host: "linux-dev.example.internal"
+  port: 22
+  username: "your-linux-user"
+  remote_path: "/home/your-linux-user/kb/KnowledgeVault"
+  key_path: "C:/Users/you/.ssh/id_rsa"
+"""

@@ -69,3 +69,23 @@ def status_lines(config: WinConfig) -> list[str]:
     if state_error:
         lines.append(f"state_error: {state_error}")
     return lines
+
+
+def doctor_lines(config: WinConfig) -> tuple[list[str], bool]:
+    lines = ["doctor: kb_win_sync"]
+    check = validate_config(config)
+    if check.errors:
+        lines.append("validate-config: failed")
+        lines.extend(f"ERROR: {item}" for item in check.errors)
+    else:
+        lines.append("validate-config: ok")
+    lines.extend(f"WARNING: {item}" for item in check.warnings)
+    lines.append("status:")
+    lines.extend(f"  {line}" for line in status_lines(config))
+    lines.append("next:")
+    if check.errors:
+        lines.append("  Fix config errors, then rerun: python -m kb_win_sync doctor --config <config>")
+    else:
+        lines.append("  Preview import: python -m kb_win_sync --config <config> --dry-run")
+        lines.append("  Run import manually before registering Task Scheduler.")
+    return lines, check.ok

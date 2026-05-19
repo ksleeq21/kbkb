@@ -6,17 +6,19 @@ import sys
 from pathlib import Path
 
 from .config import load_config
-from .diagnostics import status_lines, validate_config
+from .diagnostics import doctor_lines, status_lines, validate_config
 from .outlook import OutlookClient, OutlookUnavailable
 from .render import message_key, render_markdown, target_path
 from .state import StateStore
 from .sync import SftpSyncer
+from .templates import WINDOWS_CONFIG_TEMPLATE
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m kb_win_sync")
-    parser.add_argument("command", nargs="?", choices=["import", "validate-config", "status"], default="import")
-    parser.add_argument("--config", required=True)
+    parser.add_argument("command", nargs="?", choices=["import", "validate-config", "status", "doctor", "init-config"], default="import")
+    parser.add_argument("--config")
+    parser.add_argument("--output")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--folder")
     parser.add_argument("--force", action="store_true")
@@ -25,6 +27,24 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--sync-only", action="store_true")
     args = parser.parse_args(argv)
 
+    if args.command == "init-config":
+        if not args.output:
+            print("ERROR: --output is required for init-config", file=sys.stderr)
+            return 2
+        output = Path(args.output)
+        if output.exists() and not args.force:
+            print(f"ERROR: config already exists: {output}", file=sys.stderr)
+            print("Use --force to overwrite.", file=sys.stderr)
+            return 2
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(WINDOWS_CONFIG_TEMPLATE, encoding="utf-8")
+        print(f"created config: {output}")
+        print(f"next: edit {output}")
+        print(f"next: python -m kb_win_sync validate-config --config {output}")
+        return 0
+    if not args.config:
+        print(f"ERROR: --config is required for {args.command}", file=sys.stderr)
+        return 2
     config = load_config(args.config)
     if args.command == "validate-config":
         result = validate_config(config)
@@ -40,6 +60,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "status":
         print("\n".join(status_lines(config)))
         return 0
+    if args.command == "doctor":
+        lines, ok = doctor_lines(config)
+        print("\n".join(lines))
+        return 0 if ok else 2
 
     config.log_path.parent.mkdir(parents=True, exist_ok=True)
     logging.basicConfig(

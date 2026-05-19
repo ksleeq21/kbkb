@@ -1,0 +1,12 @@
+LINUX_CONFIG_TEMPLATE = """vault_path: "/home/you/kb/KnowledgeVault"
+database_path: "/home/you/.local/share/kb-api/kb.sqlite"
+token_env: "KB_API_TOKEN"
+admin_token_env: "KB_API_ADMIN_TOKEN"
+ignore_dirs:
+  - ".obsidian"
+  - ".trash"
+  - ".git"
+server:
+  host: "127.0.0.1"
+  port: 8765
+"""

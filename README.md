@@ -55,14 +55,22 @@ The default MVP HTTP server uses the standard library and exposes the required r
 
 For complete setup, token, service, upgrade, and uninstall instructions, see [docs/SETUP.md](docs/SETUP.md).
 
+For a first-run usability checklist and remaining improvement ideas, see [docs/FIRST_RUN_UX_REVIEW.md](docs/FIRST_RUN_UX_REVIEW.md).
+
+For common failure symptoms and first diagnostic commands, see [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
+
+For Windows Outlook folder selection and Task Scheduler setup, see [docs/WINDOWS_OUTLOOK_SETUP.md](docs/WINDOWS_OUTLOOK_SETUP.md).
+
 ## Windows Import
 
-1. Copy `examples/windows-config.example.yaml` to a local path such as `%USERPROFILE%\kb-win-sync\config.yaml`.
+1. Generate a local config at `%USERPROFILE%\kb-win-sync\config.yaml`.
 2. Edit `vault_path`, whitelisted `outlook.folders`, and optional `sync`.
 3. Run:
 
 ```powershell
+python -m kb_win_sync init-config --output "$env:USERPROFILE\kb-win-sync\config.yaml"
 python -m kb_win_sync validate-config --config "$env:USERPROFILE\kb-win-sync\config.yaml"
+python -m kb_win_sync doctor --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 python -m kb_win_sync status --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 python -m kb_win_sync --config "$env:USERPROFILE\kb-win-sync\config.yaml" --dry-run
 python -m kb_win_sync --config "$env:USERPROFILE\kb-win-sync\config.yaml"
@@ -85,7 +93,9 @@ export KB_API_ADMIN_TOKEN='replace-with-admin-token'
 3. Rebuild the index:
 
 ```bash
+python3 -m kb_api init-config --output ~/.config/kb-api/config.yaml
 python3 -m kb_api validate-config --config /path/to/linux-config.yaml
+python3 -m kb_api doctor --config /path/to/linux-config.yaml
 python3 -m kb_api reindex --config /path/to/linux-config.yaml
 python3 -m kb_api status --config /path/to/linux-config.yaml
 ```
