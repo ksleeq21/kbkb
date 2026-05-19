@@ -1,6 +1,7 @@
 # Operations Guide
 
 For first-time setup, token generation, service installation, upgrade, and uninstall steps, see `docs/SETUP.md`.
+For the full install-to-search workflow, see `docs/END_TO_END_WORKFLOW.md`.
 
 For first-run UX gaps and planned improvements, see `docs/FIRST_RUN_UX_REVIEW.md`.
 For Windows Outlook folder selection and Task Scheduler details, see `docs/WINDOWS_OUTLOOK_SETUP.md`.
@@ -8,7 +9,13 @@ For Windows Outlook folder selection and Task Scheduler details, see `docs/WINDO
 ## Windows Daily Import
 
 1. Put config at `%USERPROFILE%\kb-win-sync\config.yaml`.
-2. Validate and inspect status with:
+2. If you need to discover Outlook folder paths, run:
+
+```powershell
+python -m kb_win_sync list-mailboxes
+```
+
+3. Validate and inspect status with:
 
 ```powershell
 python -m kb_win_sync validate-config --config "$env:USERPROFILE\kb-win-sync\config.yaml"
@@ -16,19 +23,19 @@ python -m kb_win_sync doctor --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 python -m kb_win_sync status --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
 
-3. Preview with:
+4. Preview with:
 
 ```powershell
 python -m kb_win_sync --config "$env:USERPROFILE\kb-win-sync\config.yaml" --dry-run
 ```
 
-4. Run:
+5. Run:
 
 ```powershell
 python -m kb_win_sync --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
 
-5. In Task Scheduler, run `examples/run-kb-win-sync.bat` daily. If Outlook COM cannot start in a background session, select "Run only when user is logged on".
+6. In Task Scheduler, run `examples/run-kb-win-sync.bat` daily. If Outlook COM cannot start in a background session, select "Run only when user is logged on".
 
 ## Linux Service
 
@@ -43,9 +50,12 @@ journalctl --user -u kb-api.service -f
 
 ## Reindex
 
+Run reindex after the Linux Cline CLI enrichment step has generated the enriched Markdown vault. The API config `vault_path` should point at the enriched vault, not the raw Windows sync directory.
+
 ```bash
 python3 -m kb_api validate-config --config /path/to/linux-config.yaml
 python3 -m kb_api doctor --config /path/to/linux-config.yaml
+python3 -m kb_api enrich --config /path/to/linux-config.yaml
 python3 -m kb_api reindex --config /path/to/linux-config.yaml
 python3 -m kb_api status --config /path/to/linux-config.yaml
 ```

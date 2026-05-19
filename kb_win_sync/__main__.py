@@ -14,9 +14,55 @@ from .sync import SftpSyncer
 from .templates import WINDOWS_CONFIG_TEMPLATE
 
 
+def parse_mailbox_selection(text: str, max_index: int) -> list[int]:
+    selected: list[int] = []
+    seen: set[int] = set()
+    for raw_part in text.replace(" ", "").split(","):
+        if not raw_part:
+            continue
+        if not raw_part.isdigit():
+            raise ValueError(f"invalid mailbox index: {raw_part}")
+        index = int(raw_part)
+        if index < 1 or index > max_index:
+            raise ValueError(f"mailbox index out of range: {index}")
+        if index not in seen:
+            selected.append(index)
+            seen.add(index)
+    return selected
+
+
+def _slug_from_path(path: str) -> str:
+    leaf = path.replace("/", "\\").rstrip("\\").rsplit("\\", 1)[-1]
+    slug = "".join(ch.lower() if ch.isalnum() else "-" for ch in leaf).strip("-")
+    return slug or "mailbox"
+
+
+def _print_folder_config_snippets(paths: list[str]) -> None:
+    if not paths:
+        print("No mailbox selected.")
+        return
+    print("")
+    print("Add entries like these under outlook.folders:")
+    for path in paths:
+        slug = _slug_from_path(path)
+        print("    - name: " + f'"{slug}"')
+        print("      outlook_path: " + f'"{path.replace(chr(92), chr(92) + chr(92))}"')
+        print("      target_folder: " + f'"20_Emails/{slug}"')
+        print("      tags:")
+        print('        - "email"')
+        print(f'        - "mailbox/{slug}"')
+        print("      save_msg: true")
+        print("      save_attachments: true")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m kb_win_sync")
-    parser.add_argument("command", nargs="?", choices=["import", "validate-config", "status", "doctor", "init-config"], default="import")
+    parser.add_argument(
+        "command",
+        nargs="?",
+        choices=["import", "validate-config", "status", "doctor", "init-config", "list-mailboxes"],
+        default="import",
+    )
     parser.add_argument("--config")
     parser.add_argument("--output")
     parser.add_argument("--dry-run", action="store_true")
@@ -25,6 +71,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--import-only", action="store_true")
     parser.add_argument("--sync-only", action="store_true")
+    parser.add_argument("--max-depth", type=int, default=6)
     args = parser.parse_args(argv)
 
     if args.command == "init-config":
@@ -41,6 +88,28 @@ def main(argv: list[str] | None = None) -> int:
         print(f"created config: {output}")
         print(f"next: edit {output}")
         print(f"next: python -m kb_win_sync validate-config --config {output}")
+        return 0
+    if args.command == "list-mailboxes":
+        try:
+            client = OutlookClient()
+        except OutlookUnavailable as exc:
+            print(f"ERROR: Outlook unavailable: {exc}", file=sys.stderr)
+            return 2
+        folders = client.list_mail_folders(max_depth=args.max_depth)
+        if not folders:
+            print("No Outlook mailboxes or folders found.")
+            return 0
+        for folder in folders:
+            indent = "  " * max(folder.depth - 1, 0)
+            print(f"{folder.index}. {indent}{folder.path}")
+        try:
+            answer = input("동기화 시키고 싶은 메일함 Index(예: 1,2,3,5): ")
+            selected = parse_mailbox_selection(answer, len(folders))
+        except ValueError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 2
+        selected_paths = [folders[index - 1].path for index in selected]
+        _print_folder_config_snippets(selected_paths)
         return 0
     if not args.config:
         print(f"ERROR: --config is required for {args.command}", file=sys.stderr)

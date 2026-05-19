@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from dataclasses import dataclass
 
 from .config import OutlookFolderConfig
 from .email_model import EmailAttachment, EmailMessage
@@ -8,6 +9,14 @@ from .email_model import EmailAttachment, EmailMessage
 
 class OutlookUnavailable(RuntimeError):
     pass
+
+
+@dataclass(frozen=True)
+class OutlookFolderInfo:
+    index: int
+    path: str
+    name: str
+    depth: int
 
 
 class OutlookClient:
@@ -37,6 +46,37 @@ class OutlookClient:
                 tags=folder.tags,
                 attachments=[EmailAttachment(str(att.FileName)) for att in getattr(item, "Attachments", [])],
             )
+
+    def list_mail_folders(self, max_depth: int = 6) -> list[OutlookFolderInfo]:
+        folders: list[OutlookFolderInfo] = []
+
+        def walk(com_folder, path: str, depth: int) -> None:
+            if depth > max_depth:
+                return
+            folders.append(
+                OutlookFolderInfo(
+                    index=len(folders) + 1,
+                    path=path,
+                    name=str(getattr(com_folder, "Name", "") or path.rsplit("\\", 1)[-1]),
+                    depth=depth,
+                )
+            )
+            try:
+                children = com_folder.Folders
+            except Exception:
+                return
+            for child in children:
+                name = str(getattr(child, "Name", "") or "")
+                if not name:
+                    continue
+                walk(child, f"{path}\\{name}", depth + 1)
+
+        for root in self._outlook.Folders:
+            name = str(getattr(root, "Name", "") or "")
+            if not name:
+                continue
+            walk(root, f"\\{name}", 1)
+        return folders
 
     def _resolve_folder(self, path: str):
         parts = [part for part in path.replace("/", "\\").split("\\") if part]

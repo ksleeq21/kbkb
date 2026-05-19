@@ -16,6 +16,10 @@ class ApiConfig:
     token_env: str = "KB_API_TOKEN"
     admin_token_env: str = "KB_API_ADMIN_TOKEN"
     ignore_dirs: list[str] = field(default_factory=lambda: [".obsidian", ".trash", ".git"])
+    raw_vault_path: Path | None = None
+    enriched_vault_path: Path | None = None
+    enrichment_cache_path: Path | None = None
+    attachment_policy: str = "copy"
 
 
 def load_config(path: str | Path) -> ApiConfig:
@@ -38,4 +42,8 @@ def parse_config(data: dict[str, Any]) -> ApiConfig:
         token_env=str(data.get("token_env", "KB_API_TOKEN")),
         admin_token_env=str(data.get("admin_token_env", "KB_API_ADMIN_TOKEN")),
         ignore_dirs=[str(item) for item in data.get("ignore_dirs", [".obsidian", ".trash", ".git"])],
+        raw_vault_path=Path(str(data["raw_vault_path"])) if data.get("raw_vault_path") else None,
+        enriched_vault_path=Path(str(data["enriched_vault_path"])) if data.get("enriched_vault_path") else None,
+        enrichment_cache_path=Path(str(data["enrichment_cache_path"])) if data.get("enrichment_cache_path") else None,
+        attachment_policy=str(data.get("attachment_policy", "copy")),
     )

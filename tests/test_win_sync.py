@@ -4,6 +4,7 @@ import json
 import tempfile
 import unittest
 
+from kb_win_sync.__main__ import parse_mailbox_selection
 from kb_win_sync.config import load_config, parse_config
 from kb_win_sync.email_model import EmailAttachment, EmailMessage
 from kb_win_sync.render import message_key, render_markdown, sanitize_filename, target_path
@@ -28,6 +29,14 @@ class WinSyncTests(unittest.TestCase):
                 }
             )
         self.assertIn("missing: outlook_path, target_folder", str(ctx.exception))
+
+    def test_parse_mailbox_selection(self) -> None:
+        self.assertEqual(parse_mailbox_selection("1,2, 3,2", 5), [1, 2, 3])
+        self.assertEqual(parse_mailbox_selection("", 5), [])
+        with self.assertRaises(ValueError):
+            parse_mailbox_selection("1,x", 5)
+        with self.assertRaises(ValueError):
+            parse_mailbox_selection("6", 5)
 
     def test_state_read_write_and_corruption(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

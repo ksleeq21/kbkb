@@ -8,7 +8,7 @@
 
 - synthetic fixture 기반 `smoke-test`가 있어 실제 이메일 없이 API 검색 흐름을 검증할 수 있다.
 - `validate-config`와 `status`가 있어 실행 전 설정 오류를 일부 확인할 수 있다.
-- GitHub token 불필요, KB API token, admin token, SFTP key 위치가 문서화되어 있다.
+- KB API token, admin token, SFTP key 위치가 문서화되어 있다.
 - `docs/API_CONTRACT.md`로 skill/API 계약이 고정되어 있다.
 - Windows config, Linux config, systemd service, `.bat` 예제가 있다.
 
@@ -52,9 +52,10 @@
 5. Windows config validate 성공
 6. Windows dry-run에서 가져올 메일 확인
 7. Windows import 실행
-8. Linux vault copy에 Markdown 도착
-9. Linux reindex 실행
-10. skill script search 성공
+8. Linux raw vault에 Markdown 도착
+9. Linux Cline CLI enrichment 실행
+10. Linux enriched vault reindex 실행
+11. skill script search 성공
 
 추가 위치:
 

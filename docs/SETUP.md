@@ -2,13 +2,9 @@
 
 이 문서는 설치, 토큰 설정, 서비스 등록, 제거 절차를 한 곳에 모은 운영용 가이드다.
 
-Important: kbkb does not require a GitHub token. Do not create or configure `GITHUB_TOKEN` for kbkb installation, Outlook import, SFTP sync, Linux API serving, or Cline/Codex skill scripts.
+설치부터 검색까지의 전체 사용자 흐름은 `docs/END_TO_END_WORKFLOW.md`를 먼저 참고한다.
 
 ## Token Policy
-
-### GitHub Token
-
-GitHub token is not required for this project.
 
 이 프로젝트는 GitHub 또는 GitHub Enterprise를 개인 지식 데이터 저장소로 사용하지 않는다. GitHub는 소스 코드 저장소로만 사용할 수 있으며, 다음 데이터는 GitHub에 올리면 안 된다.
 
@@ -22,8 +18,6 @@ GitHub token is not required for this project.
 - API tokens
 - SSH private keys
 - `.env` files
-
-If a GitHub token exists on the machine for other development work, ignore it for kbkb. Do not put it in this project config. `kb_win_sync`, `kb_api`, and the skill scripts do not read or need `GITHUB_TOKEN`.
 
 ### KB API Tokens
 
@@ -83,7 +77,7 @@ sync:
   enabled: true
   host: "linux-dev.example.internal"
   username: "your-linux-user"
-  remote_path: "/home/your-linux-user/kb/KnowledgeVault"
+  remote_path: "/home/your-linux-user/kb/KnowledgeVault-Raw"
   key_path: "C:/Users/you/.ssh/id_rsa"
 ```
 
@@ -97,14 +91,16 @@ Use this order for the first successful setup:
 
 1. Linux: run the synthetic smoke test.
 2. Linux: create API config and tokens.
-3. Linux: reindex and start the API.
+3. Linux: create or verify the enriched vault path, then start the API after reindex.
 4. Linux: verify `/health`, `/health?deep=true`, and `/search`.
 5. Windows: create Outlook import config.
-6. Windows: validate config and run `--dry-run`.
-7. Windows: run import manually once.
-8. Windows: enable Task Scheduler only after manual import works.
-9. Linux: reindex the synced vault.
-10. Cline/Codex: run `kb_search.py` against the API.
+6. Windows: run `list-mailboxes`, choose mailbox indexes, and copy the generated snippets into config.
+7. Windows: validate config and run `--dry-run`.
+8. Windows: run import manually once.
+9. Windows: enable Task Scheduler only after manual import works.
+10. Linux: run Cline CLI enrichment from raw Markdown to enriched Markdown.
+11. Linux: reindex the enriched vault.
+12. Cline/Codex: run `kb_search.py` against the API.
 
 See `docs/FIRST_RUN_UX_REVIEW.md` for the full usability review and additional improvement candidates.
 
@@ -132,11 +128,17 @@ Edit:
 vim ~/.config/kb-api/config.yaml
 ```
 
-Validate and index:
+Validate first:
 
 ```bash
 python3 -m kb_api validate-config --config ~/.config/kb-api/config.yaml
 python3 -m kb_api doctor --config ~/.config/kb-api/config.yaml
+```
+
+After Windows has synced raw Markdown to Linux, enrich and index:
+
+```bash
+python3 -m kb_api enrich --config ~/.config/kb-api/config.yaml
 python3 -m kb_api reindex --config ~/.config/kb-api/config.yaml
 python3 -m kb_api status --config ~/.config/kb-api/config.yaml
 ```
@@ -201,8 +203,17 @@ Create local config outside the repo:
 ```powershell
 New-Item -ItemType Directory -Force "$env:USERPROFILE\kb-win-sync"
 python -m kb_win_sync init-config --output "$env:USERPROFILE\kb-win-sync\config.yaml"
+python -m kb_win_sync list-mailboxes
 notepad "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
+
+`list-mailboxes` prints Outlook mailboxes and folders with numeric indexes, then asks:
+
+```text
+동기화 시키고 싶은 메일함 Index(예: 1,2,3,5):
+```
+
+Copy the generated `outlook.folders` snippets into the local config and adjust `name`, `target_folder`, and `tags` as needed.
 
 Validate and preview:
 
@@ -242,14 +253,17 @@ Before setting `sync.enabled: true`, verify SSH/SFTP independently from Windows:
 ssh your-linux-user@linux-dev.example.internal
 ```
 
-On Linux, verify the remote vault directory exists and is writable:
+On Linux, verify the remote raw vault directory exists and is writable. Also create the enriched vault directory used by `kb_api`.
 
 ```bash
-mkdir -p /home/your-linux-user/kb/KnowledgeVault
-test -w /home/your-linux-user/kb/KnowledgeVault
+mkdir -p /home/your-linux-user/kb/KnowledgeVault-Raw
+mkdir -p /home/your-linux-user/kb/KnowledgeVault-Enriched
+test -w /home/your-linux-user/kb/KnowledgeVault-Raw
 ```
 
 Keep `sync.enabled: false` until SSH, remote path, and permissions are confirmed. Do not use GitHub as a sync backend.
+
+`kb_win_sync` should sync into the raw vault. The Linux Cline CLI enrichment step should read that raw vault and write a separate enriched vault. Configure `kb_api.vault_path` to the enriched vault.
 
 ## Upgrade
 

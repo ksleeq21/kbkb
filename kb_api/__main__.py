@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .config import load_config
 from .diagnostics import doctor_lines, smoke_test, status_lines, validate_config
+from .enrichment import enrich_vault
 from .indexer import reindex
 from .server import serve
 from .templates import LINUX_CONFIG_TEMPLATE
@@ -17,6 +18,10 @@ def main(argv: list[str] | None = None) -> int:
     for name in ["reindex", "serve", "validate-config", "status", "smoke-test", "doctor"]:
         cmd = sub.add_parser(name)
         cmd.add_argument("--config", required=True)
+    enrich = sub.add_parser("enrich")
+    enrich.add_argument("--config", required=True)
+    enrich.add_argument("--use-cache-only", action="store_true")
+    enrich.add_argument("--cline-command", default="cline")
     init = sub.add_parser("init-config")
     init.add_argument("--output", required=True)
     init.add_argument("--force", action="store_true")
@@ -65,6 +70,20 @@ def main(argv: list[str] | None = None) -> int:
         stats = reindex(config)
         print(f"indexed notes={stats.notes} chunks={stats.chunks}")
         return 0
+    if args.command == "enrich":
+        try:
+            stats = enrich_vault(config, use_cache_only=args.use_cache_only, cline_command=args.cline_command)
+        except (RuntimeError, ValueError) as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 2
+        print(
+            "enrich "
+            f"raw_notes={stats.raw_notes} "
+            f"enriched_notes={stats.enriched_notes} "
+            f"copied_files={stats.copied_files} "
+            f"failed={stats.failed}"
+        )
+        return 0 if stats.failed == 0 else 2
     if args.command == "serve":
         serve(config)
         return 0

@@ -1,0 +1,200 @@
+from __future__ import annotations
+
+import json
+import shutil
+import subprocess
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from kb_win_sync.simple_yaml import dump_frontmatter
+
+from .config import ApiConfig
+from .frontmatter import parse_markdown
+from .scanner import scan_markdown
+
+
+ALLOWED_METADATA_KEYS = {"tags", "llm_tags", "llm_summary"}
+FORBIDDEN_METADATA_KEYS = {
+    "type",
+    "source",
+    "source_id",
+    "source_checksum",
+    "subject",
+    "from",
+    "to",
+    "cc",
+    "received",
+    "received_at",
+    "sent_at",
+    "conversation_id",
+    "message_id",
+    "message_key",
+    "folder",
+    "outlook_folder",
+    "attachments",
+    "original_msg",
+    "original_msg_path",
+}
+
+
+@dataclass(frozen=True)
+class EnrichmentStats:
+    raw_notes: int = 0
+    enriched_notes: int = 0
+    copied_files: int = 0
+    failed: int = 0
+
+
+def enrich_vault(config: ApiConfig, *, use_cache_only: bool = False, cline_command: str = "cline") -> EnrichmentStats:
+    raw_root = config.raw_vault_path
+    enriched_root = config.enriched_vault_path or config.vault_path
+    cache_root = config.enrichment_cache_path
+    if raw_root is None:
+        raise ValueError("raw_vault_path is required for enrichment")
+    if cache_root is None:
+        raise ValueError("enrichment_cache_path is required for enrichment")
+    if config.attachment_policy != "copy":
+        raise ValueError("attachment_policy must be 'copy'")
+    raw_root = Path(raw_root)
+    enriched_root = Path(enriched_root)
+    cache_root = Path(cache_root)
+    if not raw_root.exists() or not raw_root.is_dir():
+        raise ValueError(f"raw_vault_path does not exist or is not a directory: {raw_root}")
+
+    copied = _copy_non_markdown_files(raw_root, enriched_root, config.ignore_dirs)
+    raw_notes = 0
+    enriched_notes = 0
+    failed = 0
+    for raw_file in scan_markdown(raw_root, config.ignore_dirs):
+        raw_notes += 1
+        rel = raw_file.relative_to(raw_root)
+        try:
+            metadata = _load_or_create_metadata(raw_file, cache_root / rel.with_suffix(".metadata.json"), use_cache_only, cline_command)
+            enriched_text = render_enriched_markdown(raw_file.read_text(encoding="utf-8"), metadata)
+            output = enriched_root / rel
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text(enriched_text, encoding="utf-8")
+            enriched_notes += 1
+        except (OSError, ValueError, RuntimeError, json.JSONDecodeError):
+            failed += 1
+    return EnrichmentStats(raw_notes=raw_notes, enriched_notes=enriched_notes, copied_files=copied, failed=failed)
+
+
+def render_enriched_markdown(raw_text: str, llm_metadata: dict[str, Any]) -> str:
+    parsed = parse_markdown(raw_text)
+    metadata = dict(parsed.metadata)
+    accepted = validate_llm_metadata(llm_metadata)
+    if "tags" in accepted:
+        metadata["tags"] = _merge_unique(_as_string_list(metadata.get("tags", [])), accepted["tags"])
+    if "llm_tags" in accepted:
+        metadata["llm_tags"] = accepted["llm_tags"]
+    if "llm_summary" in accepted:
+        metadata["llm_summary"] = accepted["llm_summary"]
+    return f"{dump_frontmatter(metadata)}\n\n{parsed.body.lstrip()}"
+
+
+def validate_llm_metadata(data: dict[str, Any]) -> dict[str, Any]:
+    forbidden = set(data) & FORBIDDEN_METADATA_KEYS
+    if forbidden:
+        raise ValueError(f"llm metadata attempted to modify source keys: {', '.join(sorted(forbidden))}")
+    extra = set(data) - ALLOWED_METADATA_KEYS
+    if extra:
+        raise ValueError(f"unsupported llm metadata keys: {', '.join(sorted(extra))}")
+    accepted: dict[str, Any] = {}
+    for key in ["tags", "llm_tags"]:
+        if key not in data:
+            continue
+        values = _as_string_list(data[key])
+        if len(values) > 20:
+            raise ValueError(f"{key} must contain at most 20 values")
+        accepted[key] = values
+    if "llm_summary" in data:
+        summary = str(data["llm_summary"]).strip()
+        if len(summary) > 1000:
+            raise ValueError("llm_summary is too long")
+        accepted["llm_summary"] = summary
+    return accepted
+
+
+def _load_or_create_metadata(raw_file: Path, cache_file: Path, use_cache_only: bool, cline_command: str) -> dict[str, Any]:
+    if cache_file.exists():
+        return json.loads(cache_file.read_text(encoding="utf-8"))
+    if use_cache_only:
+        raise ValueError(f"missing cached metadata: {cache_file}")
+    metadata = _call_cline_for_metadata(raw_file.read_text(encoding="utf-8"), cline_command)
+    cache_file.parent.mkdir(parents=True, exist_ok=True)
+    cache_file.write_text(json.dumps(metadata, ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+    return metadata
+
+
+def _call_cline_for_metadata(raw_markdown: str, cline_command: str) -> dict[str, Any]:
+    prompt = (
+        "Return exactly one JSON object with only these optional keys: "
+        "tags, llm_tags, llm_summary. Do not include source metadata such as "
+        "from, to, dates, source_id, message_id, conversation_id, attachments, or folder. "
+        "Use evidence from this raw Markdown only.\n\n"
+        + raw_markdown
+    )
+    args = cline_command.split() + ["--json", prompt]
+    completed = subprocess.run(args, text=True, capture_output=True, timeout=120, check=False)
+    if completed.returncode != 0:
+        raise RuntimeError(completed.stderr.strip() or "cline command failed")
+    return _parse_json_object(completed.stdout)
+
+
+def _parse_json_object(text: str) -> dict[str, Any]:
+    stripped = text.strip()
+    try:
+        parsed = json.loads(stripped)
+        if isinstance(parsed, dict):
+            return parsed
+    except json.JSONDecodeError:
+        pass
+    for line in reversed(stripped.splitlines()):
+        try:
+            parsed = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, dict):
+            if isinstance(parsed.get("metadata"), dict):
+                return parsed["metadata"]
+            if isinstance(parsed.get("result"), dict):
+                return parsed["result"]
+            return parsed
+    raise json.JSONDecodeError("No JSON object found in cline output", text, 0)
+
+
+def _copy_non_markdown_files(raw_root: Path, enriched_root: Path, ignore_dirs: list[str]) -> int:
+    ignored = set(ignore_dirs)
+    copied = 0
+    for source in raw_root.rglob("*"):
+        if not source.is_file():
+            continue
+        rel = source.relative_to(raw_root)
+        if set(rel.parts) & ignored or source.suffix.lower() == ".md":
+            continue
+        target = enriched_root / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+        copied += 1
+    return copied
+
+
+def _as_string_list(value: Any) -> list[str]:
+    if value in (None, ""):
+        return []
+    if not isinstance(value, list):
+        raise ValueError("metadata value must be a list")
+    result = [str(item).strip() for item in value if str(item).strip()]
+    return _merge_unique([], result)
+
+
+def _merge_unique(existing: list[str], incoming: list[str]) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+    for item in [*existing, *incoming]:
+        if item not in seen:
+            result.append(item)
+            seen.add(item)
+    return result

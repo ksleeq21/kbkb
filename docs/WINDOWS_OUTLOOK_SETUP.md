@@ -20,10 +20,42 @@ Generate a local config outside the repository:
 
 ```powershell
 python -m kb_win_sync init-config --output "$env:USERPROFILE\kb-win-sync\config.yaml"
+python -m kb_win_sync list-mailboxes
 notepad "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
 
 The generated file is a template. Edit `vault_path`, `outlook.folders`, and optional `sync`.
+
+## List Mailboxes Interactively
+
+Use the mailbox picker before editing `outlook.folders` by hand:
+
+```powershell
+python -m kb_win_sync list-mailboxes
+```
+
+The command opens classic Outlook through COM automation, prints mailboxes and folders with numeric indexes, and prompts:
+
+```text
+동기화 시키고 싶은 메일함 Index(예: 1,2,3,5):
+```
+
+Enter one or more indexes separated by commas. The command prints YAML snippets that can be copied under `outlook.folders`.
+
+Example output shape:
+
+```yaml
+    - name: "projecta"
+      outlook_path: "\\Mailbox - User Name\\Inbox\\_KB\\ProjectA"
+      target_folder: "20_Emails/projecta"
+      tags:
+        - "email"
+        - "mailbox/projecta"
+      save_msg: true
+      save_attachments: true
+```
+
+Review the generated `name`, `target_folder`, and `tags` before running import.
 
 ## Select Outlook Folders
 

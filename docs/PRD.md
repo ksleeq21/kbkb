@@ -38,7 +38,7 @@ Linux:
 - API server
 - Synced copy of Obsidian vault
 
-Because Cline runs in the Linux development environment and remote MCP access to local Windows data is not available, the preferred approach is to expose a Linux-based HTTP API over the synced Obsidian vault. Cline can then use a skill or script to call the API.
+Because Cline runs in the Linux development environment and remote MCP access to local Windows data is not available, the preferred approach is to sync raw Markdown to Linux, enrich it on Linux with Cline CLI into a separate enriched vault, and expose a Linux-based HTTP API over the enriched vault. Cline can then use a skill or script to call the API.
 
 3. Goals
 
@@ -65,7 +65,7 @@ Because Cline runs in the Linux development environment and remote MCP access to
 7. Synchronize the Windows Obsidian vault to a Linux vault copy without using GitHub as storage.
 
 
-8. Build a Linux service that indexes the synced vault and exposes a read-only HTTP API.
+8. Build a Linux service that indexes the enriched vault and exposes a read-only HTTP API.
 
 
 9. Allow Cline/Codex skills to search and read knowledge base content through the Linux API.
@@ -199,13 +199,18 @@ D:\KnowledgeVault
         │ File sync, not GitHub
         ▼
 [Linux]
-Linux Vault Copy
-/home/<user>/kb/KnowledgeVault
+Raw Linux Vault Copy
+/home/<user>/kb/KnowledgeVault-Raw
+        │
+        │ Cline CLI metadata enrichment
+        ▼
+Enriched Linux Vault
+/home/<user>/kb/KnowledgeVault-Enriched
         │
         ▼
 kb-api
         │
-        ├─ Scans Markdown files
+        ├─ Scans enriched Markdown files
         ├─ Parses YAML frontmatter
         ├─ Indexes content into SQLite FTS
         ├─ Provides read-only HTTP API
@@ -258,7 +263,7 @@ A Windows application responsible for:
 
 A Linux application responsible for:
 
-1. Reading the synced Obsidian vault.
+1. Reading the enriched Obsidian vault generated on Linux.
 
 
 2. Parsing Markdown files and YAML frontmatter.
@@ -277,6 +282,31 @@ A Linux application responsible for:
 
 
 7. Running as a local service in the Linux development environment.
+
+
+7.4 Component 4: Linux Cline CLI Enrichment
+
+A Linux enrichment step responsible for:
+
+1. Reading raw Markdown synced from Windows.
+
+
+2. Calling Cline CLI with the raw Markdown as input.
+
+
+3. Receiving structured metadata output such as tags, llm_tags, and llm_summary.
+
+
+4. Validating the Cline CLI output.
+
+
+5. Preserving the raw Markdown unchanged.
+
+
+6. Writing a separate enriched Markdown file for indexing.
+
+
+7. Supporting fixture-based tests using raw Markdown plus saved Cline output.
 
 
 
@@ -678,20 +708,21 @@ Initial version may use full sync if incremental sync is explicitly deferred.
 
 FR-LINUX-001: Vault Path Configuration
 
-The Linux app must read a configured vault path.
+The Linux app must read a configured enriched vault path for indexing. Raw Markdown synced from Windows is read by the enrichment step, not directly by the indexer.
 
 Example config:
 
-vault:
-  path: "/home/kangsan/kb/KnowledgeVault"
-
-database:
-  path: "/home/kangsan/kb/kb.sqlite"
-
-api:
+vault_path: "/home/kangsan/kb/KnowledgeVault-Enriched"
+raw_vault_path: "/home/kangsan/kb/KnowledgeVault-Raw"
+enriched_vault_path: "/home/kangsan/kb/KnowledgeVault-Enriched"
+enrichment_cache_path: "/home/kangsan/.local/share/kb-api/enrichment-cache"
+attachment_policy: "copy"
+database_path: "/home/kangsan/kb/kb.sqlite"
+token_env: "KB_API_TOKEN"
+admin_token_env: "KB_API_ADMIN_TOKEN"
+server:
   host: "127.0.0.1"
   port: 8765
-  token_env: "KB_API_TOKEN"
 
 Acceptance criteria:
 
@@ -1184,7 +1215,7 @@ sync:
   host: "linux-dev-server"
   port: 22
   user: "kb-sync"
-  remote_path: "/home/kangsan/kb/KnowledgeVault"
+  remote_path: "/home/kangsan/kb/KnowledgeVault-Raw"
   private_key: "C:/Users/kangsan/.ssh/kb_sync_ed25519"
   manifest_path: "D:/KnowledgeVault/.kb-sync-manifest.json"
 
@@ -1216,16 +1247,17 @@ Recommended Linux config file:
 
 Example:
 
-vault:
-  path: "/home/kangsan/kb/KnowledgeVault"
-
-database:
-  path: "/home/kangsan/kb/kb.sqlite"
-
-api:
+vault_path: "/home/kangsan/kb/KnowledgeVault-Enriched"
+raw_vault_path: "/home/kangsan/kb/KnowledgeVault-Raw"
+enriched_vault_path: "/home/kangsan/kb/KnowledgeVault-Enriched"
+enrichment_cache_path: "/home/kangsan/.local/share/kb-api/enrichment-cache"
+attachment_policy: "copy"
+database_path: "/home/kangsan/kb/kb.sqlite"
+token_env: "KB_API_TOKEN"
+admin_token_env: "KB_API_ADMIN_TOKEN"
+server:
   host: "127.0.0.1"
   port: 8765
-  token_env: "KB_API_TOKEN"
 
 index:
   ignore_dirs:
@@ -1585,10 +1617,13 @@ MVP Must Have
 8. Sync Windows vault files to Linux using SFTP.
 
 
-9. Linux vault scanner.
+9. Linux Cline CLI enrichment from raw Markdown to enriched Markdown.
 
 
-10. SQLite FTS index.
+10. Linux enriched vault scanner.
+
+
+11. SQLite FTS index.
 
 
 11. /health endpoint.
@@ -1670,9 +1705,11 @@ MVP Can Defer
 3. User runs kb-win-sync manually.
 4. kb-win-sync imports the email into the Windows Obsidian vault.
 5. kb-win-sync syncs changed files to Linux.
-6. kb-api indexes the synced Markdown file.
-7. User asks Cline/Codex about the topic.
-8. Cline/Codex calls the KB API and uses the evidence.
+6. Linux enrichment runs Cline CLI against the raw Markdown.
+7. The enrichment step writes a separate enriched Markdown file.
+8. kb-api indexes the enriched Markdown file.
+9. User asks Cline/Codex about the topic.
+10. Cline/Codex calls the KB API and uses the evidence.
 
 15.2 Daily Automatic Import Workflow
 
@@ -1680,8 +1717,9 @@ MVP Can Defer
 2. Windows Task Scheduler runs kb-win-sync once per day.
 3. Emails are imported into the Windows Obsidian vault.
 4. Changed files are synced to Linux.
-5. Linux reindex runs automatically or on demand.
-6. Cline/Codex can search the updated knowledge base.
+5. Linux Cline CLI enrichment runs automatically or on demand.
+6. Linux reindex runs against the enriched vault automatically or on demand.
+7. Cline/Codex can search the updated knowledge base.
 
 15.3 AI Search Workflow
 
@@ -2046,8 +2084,10 @@ Manual Windows test:
 
 Manual Linux test:
 
-1. Confirm synced vault exists on Linux.
-2. Run reindex.
+1. Confirm raw vault exists on Linux.
+2. Run Cline CLI enrichment.
+3. Confirm enriched Markdown exists and raw Markdown is unchanged.
+4. Run reindex against the enriched vault.
 3. Start API server.
 4. Call /health.
 5. Call /search.
@@ -2220,11 +2260,39 @@ Sync logging.
 
 Acceptance criteria:
 
-Windows vault files are copied to Linux.
+Windows vault files are copied to the Linux raw vault.
 
 Sync can run after import.
 
 Sync failure is logged.
+
+
+Milestone 3.5: Linux Cline CLI Enrichment MVP
+
+Deliverables:
+
+Raw Markdown input reader.
+
+Cline CLI invocation wrapper.
+
+Structured metadata output capture.
+
+Metadata validator.
+
+Enriched Markdown writer.
+
+Golden fixture tests for raw Markdown plus Cline output.
+
+
+Acceptance criteria:
+
+Raw Markdown is never overwritten.
+
+The same raw Markdown and saved Cline output generate the same enriched Markdown.
+
+Invalid Cline output is rejected without modifying raw or enriched Markdown.
+
+kb-api can index the enriched vault after enrichment succeeds.
 
 
 Milestone 4: Linux Index and Search API
@@ -2246,7 +2314,7 @@ FastAPI server.
 
 Acceptance criteria:
 
-Synced vault can be indexed.
+Enriched vault can be indexed.
 
 Search returns imported emails.
 
@@ -2348,8 +2416,11 @@ Outlook access:
 Windows vault:
 - D:\KnowledgeVault
 
-Linux vault:
-- /home/kangsan/kb/KnowledgeVault
+Linux raw vault:
+- /home/kangsan/kb/KnowledgeVault-Raw
+
+Linux enriched vault:
+- /home/kangsan/kb/KnowledgeVault-Enriched
 
 Sync:
 - SFTP over SSH.
@@ -2398,13 +2469,16 @@ The MVP is complete when all of the following are true:
 6. The Windows app can sync the vault files to Linux without using GitHub.
 
 
-7. The Linux app can index the synced vault.
+7. The Linux Cline CLI enrichment step can generate enriched Markdown without overwriting raw Markdown.
 
 
-8. The Linux API can search imported emails.
+8. The Linux app can index the enriched vault.
 
 
-9. The Linux API can read a note by relative path.
+9. The Linux API can search imported emails.
+
+
+10. The Linux API can read a note by relative path.
 
 
 10. The API is protected by a bearer token.

@@ -4,8 +4,6 @@ Local-first Outlook-to-Obsidian knowledge base sync and read-only search API.
 
 This repository is for source code only. Do not store Obsidian vault contents, exported emails, `.msg` files, attachments, SQLite databases, tokens, SSH keys, or personal notes in GitHub or GitHub Enterprise, including `https://github.sec.samsung.net`.
 
-Important: running kbkb does not require a GitHub token. Do not configure `GITHUB_TOKEN` for this project. The only runtime tokens used by kbkb are local KB API tokens: `KB_API_TOKEN` and `KB_API_ADMIN_TOKEN`.
-
 ## Components
 
 - `kb_win_sync`: Windows-side Outlook import, Markdown rendering, state storage, and optional SFTP sync.
@@ -63,6 +61,8 @@ For common failure symptoms and first diagnostic commands, see [docs/TROUBLESHOO
 
 For Windows Outlook folder selection and Task Scheduler setup, see [docs/WINDOWS_OUTLOOK_SETUP.md](docs/WINDOWS_OUTLOOK_SETUP.md).
 
+For the complete Windows install to Linux search workflow, see [docs/END_TO_END_WORKFLOW.md](docs/END_TO_END_WORKFLOW.md).
+
 ## Windows Import
 
 1. Generate a local config at `%USERPROFILE%\kb-win-sync\config.yaml`.
@@ -71,6 +71,7 @@ For Windows Outlook folder selection and Task Scheduler setup, see [docs/WINDOWS
 
 ```powershell
 python -m kb_win_sync init-config --output "$env:USERPROFILE\kb-win-sync\config.yaml"
+python -m kb_win_sync list-mailboxes
 python -m kb_win_sync validate-config --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 python -m kb_win_sync doctor --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 python -m kb_win_sync status --config "$env:USERPROFILE\kb-win-sync\config.yaml"
@@ -92,12 +93,13 @@ export KB_API_TOKEN='replace-with-local-token'
 export KB_API_ADMIN_TOKEN='replace-with-admin-token'
 ```
 
-3. Rebuild the index:
+3. Enrich raw Markdown on Linux, then rebuild the index from the enriched Markdown vault:
 
 ```bash
 python3 -m kb_api init-config --output ~/.config/kb-api/config.yaml
 python3 -m kb_api validate-config --config /path/to/linux-config.yaml
 python3 -m kb_api doctor --config /path/to/linux-config.yaml
+python3 -m kb_api enrich --config /path/to/linux-config.yaml
 python3 -m kb_api reindex --config /path/to/linux-config.yaml
 python3 -m kb_api status --config /path/to/linux-config.yaml
 ```
@@ -121,6 +123,10 @@ There are no create, update, or delete endpoints in the MVP.
 
 The stable API/skill contract is documented in [docs/API_CONTRACT.md](docs/API_CONTRACT.md).
 
+The Obsidian-native graph extension plan is documented in [docs/OBSIDIAN_GRAPH_DEVELOPMENT.md](docs/OBSIDIAN_GRAPH_DEVELOPMENT.md).
+
+The end-to-end workflow documents the required raw Markdown -> Cline CLI enrichment -> enriched Markdown -> reindex sequence in [docs/END_TO_END_WORKFLOW.md](docs/END_TO_END_WORKFLOW.md).
+
 ## Cline/Codex Skill
 
 Set:
@@ -143,7 +149,6 @@ python3 cline_skill_obsidian_kb/scripts/kb_context.py "What did we decide about 
 
 - Keep the API bound to `127.0.0.1` unless you have a reviewed network access plan.
 - Use bearer tokens for every non-health endpoint.
-- GitHub tokens are not required for install, import, sync, API serving, or skill scripts; do not put `GITHUB_TOKEN` or GitHub credentials in this project config.
 - Use vault-relative paths only; absolute paths and `..` traversal are rejected.
 - Do not use GitHub, GitHub Enterprise, Obsidian Sync, Obsidian Publish, or external SaaS as personal knowledge storage.
 - The repository test fixtures are synthetic and must remain synthetic.

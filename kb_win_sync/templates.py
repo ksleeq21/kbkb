@@ -16,6 +16,6 @@ sync:
   host: "linux-dev.example.internal"
   port: 22
   username: "your-linux-user"
-  remote_path: "/home/your-linux-user/kb/KnowledgeVault"
+  remote_path: "/home/your-linux-user/kb/KnowledgeVault-Raw"
   key_path: "C:/Users/you/.ssh/id_rsa"
 """

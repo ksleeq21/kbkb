@@ -8,6 +8,7 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from kb_api.config import ApiConfig, load_config
+from kb_api.enrichment import enrich_vault, render_enriched_markdown, validate_llm_metadata
 from kb_api.frontmatter import parse_markdown
 from kb_api.indexer import read_by_path, reindex, safe_relative_path, search
 from kb_api.scanner import scan_markdown
@@ -44,6 +45,47 @@ class ApiTests(unittest.TestCase):
                 safe_relative_path("../secret")
             with self.assertRaises(ValueError):
                 safe_relative_path("/tmp/secret")
+
+    def test_enrichment_uses_cached_json_and_preserves_raw(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            raw = os.path.join(tmp, "raw")
+            enriched = os.path.join(tmp, "enriched")
+            cache = os.path.join(tmp, "cache")
+            os.makedirs(os.path.join(raw, "20_Emails", "ProjectA"))
+            os.makedirs(os.path.join(raw, "90_Attachments", "email", "abc"))
+            raw_note = os.path.join(raw, "20_Emails", "ProjectA", "email.md")
+            attachment = os.path.join(raw, "90_Attachments", "email", "abc", "report.txt")
+            with open(raw_note, "w", encoding="utf-8") as fh:
+                fh.write("---\ntype: \"email\"\ntags:\n  - \"email\"\nsubject: \"개발망 회의록\"\n---\n# 개발망 회의록\n본문")
+            with open(attachment, "w", encoding="utf-8") as fh:
+                fh.write("attachment")
+            cache_file = os.path.join(cache, "20_Emails", "ProjectA", "email.metadata.json")
+            os.makedirs(os.path.dirname(cache_file))
+            with open(cache_file, "w", encoding="utf-8") as fh:
+                fh.write('{"tags": ["개발망", "회의록"], "llm_tags": ["인프라"], "llm_summary": "요약"}')
+
+            config = ApiConfig(
+                vault_path=enriched,
+                database_path=os.path.join(tmp, "kb.sqlite"),
+                raw_vault_path=raw,
+                enriched_vault_path=enriched,
+                enrichment_cache_path=cache,
+            )
+            stats = enrich_vault(config, use_cache_only=True)
+            self.assertEqual(stats.raw_notes, 1)
+            self.assertEqual(stats.enriched_notes, 1)
+            self.assertEqual(stats.copied_files, 1)
+            with open(os.path.join(enriched, "20_Emails", "ProjectA", "email.md"), encoding="utf-8") as fh:
+                self.assertIn('tags:\n  - "email"\n  - "개발망"\n  - "회의록"', fh.read())
+            self.assertTrue(os.path.exists(os.path.join(enriched, "90_Attachments", "email", "abc", "report.txt")))
+            with open(raw_note, encoding="utf-8") as fh:
+                self.assertNotIn("llm_summary", fh.read())
+
+    def test_enrichment_rejects_source_metadata_changes(self) -> None:
+        with self.assertRaises(ValueError):
+            validate_llm_metadata({"conversation_id": "made-up"})
+        enriched = render_enriched_markdown("---\ntype: \"email\"\ntags:\n  - \"email\"\n---\nBody", {"tags": ["회의록"]})
+        self.assertIn('  - "email"\n  - "회의록"', enriched)
 
     def test_http_auth_health_search_and_read(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

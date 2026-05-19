@@ -41,6 +41,21 @@ def validate_config(config: ApiConfig) -> CheckResult:
         result.warnings.append(f"admin token env var is not set: {config.admin_token_env}")
     if config.host != "127.0.0.1":
         result.warnings.append(f"server host is {config.host}; default local-only host is 127.0.0.1")
+    if config.attachment_policy != "copy":
+        result.errors.append("attachment_policy must be copy")
+    if config.raw_vault_path is not None:
+        raw_path = Path(config.raw_vault_path)
+        if not raw_path.exists():
+            result.errors.append(f"raw_vault_path does not exist: {raw_path}")
+        elif not raw_path.is_dir():
+            result.errors.append(f"raw_vault_path is not a directory: {raw_path}")
+    if config.enriched_vault_path is not None and Path(config.enriched_vault_path) != vault_path:
+        result.warnings.append("enriched_vault_path differs from vault_path; kb_api indexes vault_path")
+    if config.enrichment_cache_path is not None:
+        try:
+            Path(config.enrichment_cache_path).mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            result.errors.append(f"enrichment_cache_path is not writable: {config.enrichment_cache_path} ({exc})")
     return result
 
 
@@ -48,6 +63,10 @@ def status_lines(config: ApiConfig) -> list[str]:
     status = index_status(config)
     return [
         f"vault_path: {Path(config.vault_path)} exists={Path(config.vault_path).exists()}",
+        f"raw_vault_path: {Path(config.raw_vault_path) if config.raw_vault_path else '(none)'}",
+        f"enriched_vault_path: {Path(config.enriched_vault_path) if config.enriched_vault_path else '(none)'}",
+        f"enrichment_cache_path: {Path(config.enrichment_cache_path) if config.enrichment_cache_path else '(none)'}",
+        f"attachment_policy: {config.attachment_policy}",
         f"database_path: {Path(config.database_path)} exists={status.database_exists}",
         f"notes: {status.notes}",
         f"chunks: {status.chunks}",
