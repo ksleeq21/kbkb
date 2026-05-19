@@ -1,0 +1,66 @@
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+
+class CliUsabilityTests(unittest.TestCase):
+    def run_cmd(self, args: list[str], env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+        merged_env = os.environ.copy()
+        if env:
+            merged_env.update(env)
+        return subprocess.run(args, cwd=Path(__file__).resolve().parents[1], env=merged_env, text=True, capture_output=True, timeout=10)
+
+    def test_api_validate_status_and_smoke_test(self) -> None:
+        env = {"KB_API_TOKEN": "test-token", "KB_API_ADMIN_TOKEN": "admin-token"}
+        validate = self.run_cmd([sys.executable, "-m", "kb_api", "validate-config", "--config", "examples/linux-config.fixture.yaml"], env)
+        self.assertEqual(validate.returncode, 0, validate.stderr + validate.stdout)
+        self.assertIn("config: ok", validate.stdout)
+
+        smoke = self.run_cmd([sys.executable, "-m", "kb_api", "smoke-test", "--config", "examples/linux-config.fixture.yaml"], env)
+        self.assertEqual(smoke.returncode, 0, smoke.stderr + smoke.stdout)
+        self.assertIn("smoke-test: ok", smoke.stdout)
+        self.assertIn("search: ok", smoke.stdout)
+
+        status = self.run_cmd([sys.executable, "-m", "kb_api", "status", "--config", "examples/linux-config.fixture.yaml"], env)
+        self.assertEqual(status.returncode, 0, status.stderr + status.stdout)
+        self.assertIn("notes:", status.stdout)
+
+    def test_api_validate_reports_missing_vault(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            config = Path(tmp) / "bad.yaml"
+            config.write_text(f'vault_path: "{tmp}/missing"\ndatabase_path: "{tmp}/kb.sqlite"\n', encoding="utf-8")
+            result = self.run_cmd([sys.executable, "-m", "kb_api", "validate-config", "--config", str(config)])
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("vault_path does not exist", result.stdout)
+
+    def test_win_validate_and_status_do_not_need_outlook(self) -> None:
+        validate = self.run_cmd([sys.executable, "-m", "kb_win_sync", "validate-config", "--config", "examples/windows-config.example.yaml"])
+        self.assertEqual(validate.returncode, 0, validate.stderr + validate.stdout)
+        self.assertIn("config: ok", validate.stdout)
+
+        status = self.run_cmd([sys.executable, "-m", "kb_win_sync", "status", "--config", "examples/windows-config.example.yaml"])
+        self.assertEqual(status.returncode, 0, status.stderr + status.stdout)
+        self.assertIn("configured_folders: 1", status.stdout)
+
+    def test_skill_script_reports_missing_token_without_leaking_value(self) -> None:
+        env = os.environ.copy()
+        env.pop("KB_API_TOKEN", None)
+        result = subprocess.run(
+            [sys.executable, "cline_skill_obsidian_kb/scripts/kb_search.py", "SSO"],
+            cwd=Path(__file__).resolve().parents[1],
+            env=env,
+            text=True,
+            capture_output=True,
+            timeout=10,
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("KB_API_TOKEN is not set", result.stderr)
+
+
+if __name__ == "__main__":
+    unittest.main()

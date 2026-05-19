@@ -1,0 +1,13 @@
+[Unit]
+Description=Local Obsidian Knowledge Base API
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/kb-api/env
+WorkingDirectory=/home/you/kbkb
+ExecStart=/usr/bin/python3 -m kb_api serve --config /home/you/kb-api/config.yaml
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

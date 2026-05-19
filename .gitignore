@@ -1,0 +1,30 @@
+# Personal knowledge data must never be committed.
+/KnowledgeVault/
+/vault/
+/90_Attachments/
+*.msg
+*.sqlite
+*.sqlite3
+*.db
+
+# Local configuration, secrets, state, logs.
+.env
+.env.*
+config.yaml
+config.yml
+*.pem
+*.key
+id_rsa*
+logs/
+state/
+.kb-sync-manifest.json
+*.log
+
+# Python/tooling.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+dist/
+build/
+*.egg-info/

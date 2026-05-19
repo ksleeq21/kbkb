@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kbkb"
+version = "0.1.0"
+description = "Local-first Outlook-to-Obsidian knowledge base sync and read-only API"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+windows = ["pywin32>=306", "paramiko>=3.4"]
+api = ["fastapi>=0.110", "uvicorn>=0.27"]
+test = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+include = ["kb_win_sync*", "kb_api*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
