@@ -89,6 +89,12 @@ class ApiTests(unittest.TestCase):
     def test_enrichment_rejects_source_metadata_changes(self) -> None:
         with self.assertRaises(ValueError):
             validate_llm_metadata({"conversation_id": "made-up"})
+        with self.assertRaises(ValueError):
+            validate_llm_metadata({"tags": ["../outside"]})
+        with self.assertRaises(ValueError):
+            validate_llm_metadata({"llm_tags": ["90_Attachments/email/report.txt"]})
+        accepted = validate_llm_metadata({"tags": ["Project/Project A", "#회의록"]})
+        self.assertEqual(accepted["tags"], ["project/project-a", "회의록"])
         enriched = render_enriched_markdown("---\ntype: \"email\"\ntags:\n  - \"email\"\n---\nBody", {"tags": ["회의록"]})
         self.assertIn('  - "email"\n  - "회의록"', enriched)
 

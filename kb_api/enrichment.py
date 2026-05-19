@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -15,6 +16,7 @@ from .scanner import scan_markdown
 
 
 ALLOWED_METADATA_KEYS = {"tags", "llm_tags", "llm_summary"}
+TAG_PATTERN = re.compile(r"^[0-9A-Za-z가-힣][0-9A-Za-z가-힣._-]*(/[0-9A-Za-z가-힣][0-9A-Za-z가-힣._-]*)*$")
 FORBIDDEN_METADATA_KEYS = {
     "type",
     "source",
@@ -108,6 +110,7 @@ def validate_llm_metadata(data: dict[str, Any]) -> dict[str, Any]:
         values = _as_string_list(data[key])
         if len(values) > 20:
             raise ValueError(f"{key} must contain at most 20 values")
+        values = [_normalize_tag(value) for value in values]
         accepted[key] = values
     if "llm_summary" in data:
         summary = str(data["llm_summary"]).strip()
@@ -188,6 +191,20 @@ def _as_string_list(value: Any) -> list[str]:
         raise ValueError("metadata value must be a list")
     result = [str(item).strip() for item in value if str(item).strip()]
     return _merge_unique([], result)
+
+
+def _normalize_tag(value: str) -> str:
+    tag = value.strip().replace("#", "").replace(" ", "-").lower()
+    tag = re.sub(r"-{2,}", "-", tag).strip("-")
+    if not tag:
+        raise ValueError("tag must not be empty after normalization")
+    if tag.startswith("/") or "\\" in tag or ".." in tag.split("/"):
+        raise ValueError(f"tag must not be a path: {value}")
+    if "/" in tag and Path(tag).suffix:
+        raise ValueError(f"tag must not look like a file path: {value}")
+    if not TAG_PATTERN.fullmatch(tag):
+        raise ValueError(f"tag is not allowed by taxonomy: {value}")
+    return tag
 
 
 def _merge_unique(existing: list[str], incoming: list[str]) -> list[str]:
