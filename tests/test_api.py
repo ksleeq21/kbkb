@@ -8,7 +8,7 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from kb_api.config import ApiConfig, load_config
-from kb_api.enrichment import enrich_vault, render_enriched_markdown, validate_llm_metadata
+from kb_api.enrichment import _parse_json_object, enrich_vault, render_enriched_markdown, validate_llm_metadata
 from kb_api.frontmatter import parse_markdown
 from kb_api.indexer import index_status, read_by_path, reindex, safe_relative_path, search
 from kb_api.scanner import scan_markdown
@@ -142,6 +142,37 @@ class ApiTests(unittest.TestCase):
                 enrich_vault(config, use_cache_only=True, raw_file_path="/tmp/outside.md")
             with self.assertRaises(ValueError):
                 enrich_vault(config, use_cache_only=True, raw_file_path="90_Attachments/email/report.txt")
+
+    def test_cline_event_stream_parser_extracts_completion_result_text(self) -> None:
+        stdout = "\n".join(
+            [
+                '{"type":"say","say":"text","text":"working"}',
+                '{"type":"say","say":"completion_result","text":"```json\\n{\\n  \\"tags\\": [\\"BART\\"],\\n  \\"llm_summary\\": \\"BART 관련 이메일\\"\\n}\\n```"}',
+            ]
+        )
+        self.assertEqual(_parse_json_object(stdout), {"tags": ["BART"], "llm_summary": "BART 관련 이메일"})
+
+    def test_cline_event_stream_parser_accepts_unfenced_completion_text(self) -> None:
+        stdout = "\n".join(
+            [
+                '{"type":"say","say":"text","text":"working"}',
+                '{"type":"say","say":"completion_result","text":"{\\"tags\\":[\\"BART\\"],\\"llm_tags\\":[\\"transit\\"]}"}',
+            ]
+        )
+        self.assertEqual(_parse_json_object(stdout), {"tags": ["BART"], "llm_tags": ["transit"]})
+
+    def test_cline_event_stream_parser_accepts_messages_wrapper(self) -> None:
+        stdout = (
+            '{"messages": ['
+            '{"type":"say","say":"text","text":"working"},'
+            '{"type":"say","say":"completion_result","text":"```json\\n{\\"tags\\":[\\"BART\\"]}\\n```"}'
+            ']}'
+        )
+        self.assertEqual(_parse_json_object(stdout), {"tags": ["BART"]})
+
+    def test_cline_event_stream_parser_extracts_json_from_extra_text(self) -> None:
+        stdout = '{"type":"say","say":"completion_result","text":"Here is the JSON:\\n{\\"tags\\":[\\"BART\\"]}\\nDone."}'
+        self.assertEqual(_parse_json_object(stdout), {"tags": ["BART"]})
 
     def test_enrichment_rejects_source_metadata_changes(self) -> None:
         with self.assertRaises(ValueError):

@@ -35,6 +35,18 @@ EOF
 )"
 ```
 
+Cline CLI의 `--json` 출력은 JSON object 하나가 아니라 여러 message JSON으로 나올 수 있다. 이 경우 최종 metadata는 다음 조건을 만족하는 message의 `text` 안에 있다.
+
+```json
+{
+  "type": "say",
+  "say": "completion_result",
+  "text": "```json\n{\"tags\":[\"BART\"]}\n```"
+}
+```
+
+`text` 값은 stringified JSON이며, ` ```json ... ``` ` fence가 붙을 수도 있고 붙지 않을 수도 있다. `kb-api enrich`는 이 message를 찾아 fence를 제거한 뒤 JSON dict로 파싱한다.
+
 정상 출력 예:
 
 ```json
@@ -60,7 +72,7 @@ EOF
 
 ## Cache 파일로 저장
 
-Cline 출력이 정상 JSON인지 확인한 뒤 cache 파일에 저장한다.
+Cline 출력이 정상 JSON인지 확인한 뒤 cache 파일에 저장한다. Cline의 raw event stream 전체가 아니라 `completion_result.text` 안의 JSON object만 cache에 저장해야 한다.
 
 ```bash
 mkdir -p "$(dirname "$CACHE_FILE")"
@@ -72,7 +84,21 @@ Use evidence from this raw Markdown only.
 
 $(cat "$RAW_FILE")
 EOF
-)" > "$CACHE_FILE"
+)"
+```
+
+출력 중 `type=say`, `say=completion_result`인 message의 `text` 값을 JSON으로 정리해 cache에 저장한다.
+
+예:
+
+```bash
+cat > "$CACHE_FILE" <<'EOF'
+{
+  "tags": ["project/project-a", "회의록"],
+  "llm_tags": ["개발환경"],
+  "llm_summary": "ProjectA 개발환경 회의록을 공유한 이메일."
+}
+EOF
 ```
 
 저장된 JSON을 확인한다.
@@ -105,6 +131,7 @@ ENRICH_FAILED action=skip rel=20_Emails/ProjectA/example.md stage=render_enriche
 
 - `type`, `subject`, `conversation_id` 같은 source metadata가 Cline output에 포함됨
 - JSON 문법 오류
+- Cline event stream 전체를 cache에 저장함. cache에는 `completion_result.text` 안의 metadata JSON object만 저장해야 한다.
 - cache 파일이 raw 파일 상대 경로와 맞지 않음
 - tag 값이 허용된 taxonomy 형식이 아님
 
