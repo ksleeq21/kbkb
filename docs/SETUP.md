@@ -6,7 +6,7 @@
 
 ## Token Policy
 
-이 프로젝트는 GitHub 또는 GitHub Enterprise를 개인 지식 데이터 저장소로 사용하지 않는다. GitHub는 소스 코드 저장소로만 사용할 수 있으며, 다음 데이터는 GitHub에 올리면 안 된다.
+다음 데이터는 소스 저장소에 올리면 안 된다.
 
 - Obsidian vault contents
 - imported email Markdown files

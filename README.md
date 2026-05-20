@@ -2,7 +2,7 @@
 
 Local-first Outlook-to-Obsidian knowledge base sync and read-only search API.
 
-This repository is for source code only. Do not store Obsidian vault contents, exported emails, `.msg` files, attachments, SQLite databases, tokens, SSH keys, or personal notes in GitHub or GitHub Enterprise, including `https://github.sec.samsung.net`.
+This repository is for source code only. Do not store Obsidian vault contents, exported emails, `.msg` files, attachments, SQLite databases, tokens, SSH keys, or personal notes in the source repository.
 
 ## Components
 
@@ -157,7 +157,6 @@ python3 cline_skill_obsidian_kb/scripts/kb_context.py "What did we decide about 
 - Keep the API bound to `127.0.0.1` unless you have a reviewed network access plan.
 - Use bearer tokens for every non-health endpoint.
 - Use vault-relative paths only; absolute paths and `..` traversal are rejected.
-- Do not use GitHub, GitHub Enterprise, Obsidian Sync, Obsidian Publish, or external SaaS as personal knowledge storage.
 - The repository test fixtures are synthetic and must remain synthetic.
 
 ## Improvement Plan

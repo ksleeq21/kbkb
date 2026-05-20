@@ -6,12 +6,7 @@
 
 This project builds a local-first personal knowledge base pipeline for importing selected Microsoft Outlook emails and text notes into an Obsidian vault, synchronizing that vault from Windows to a Linux development environment, and exposing a read-only search API that can be used by Cline/Codex skills or other AI coding assistants.
 
-The system is designed for an enterprise environment where personal knowledge files must not be stored in GitHub repositories, including the internal GitHub Enterprise instance at:
-
-```text
-https://github.sec.samsung.net
-
-The internal GitHub Enterprise instance may be used only for source code repository management, not for backing up or storing personal emails, notes, or knowledge base contents.
+The system is designed for an enterprise environment where source code and personal knowledge contents are managed separately.
 
 2. Background
 
@@ -103,40 +98,37 @@ Because Cline runs in the Linux development environment and remote MCP access to
 
 The project must not attempt to do the following in the first version:
 
-1. Do not store Obsidian vault contents in GitHub or GitHub Enterprise.
+1. Do not store Obsidian vault contents in the source repository.
 
 
-2. Do not use https://github.sec.samsung.net as personal knowledge storage.
+2. Do not upload emails, notes, or attachments to external SaaS services.
 
 
-3. Do not upload emails, notes, or attachments to external SaaS services.
+3. Do not depend on Obsidian Sync or Obsidian Publish.
 
 
-4. Do not depend on Obsidian Sync or Obsidian Publish.
+4. Do not require Microsoft Graph API permissions in the MVP.
 
 
-5. Do not require Microsoft Graph API permissions in the MVP.
+5. Do not require an Outlook add-in marketplace installation.
 
 
-6. Do not require an Outlook add-in marketplace installation.
+6. Do not expose the Windows Obsidian vault directly over the network.
 
 
-7. Do not expose the Windows Obsidian vault directly over the network.
+7. Do not provide write/update/delete APIs to Cline in the first version.
 
 
-8. Do not provide write/update/delete APIs to Cline in the first version.
+8. Do not build a full RAG system with embeddings in the MVP.
 
 
-9. Do not build a full RAG system with embeddings in the MVP.
+9. Do not import every Outlook email by default.
 
 
-10. Do not import every Outlook email by default.
+10. Do not import sensitive folders unless explicitly configured by the user.
 
 
-11. Do not import sensitive folders unless explicitly configured by the user.
-
-
-12. Do not assume that all attachments can be text-indexed in the MVP.
+11. Do not assume that all attachments can be text-indexed in the MVP.
 
 
 
@@ -1296,13 +1288,7 @@ index:
 
 SEC-001: No GitHub Vault Storage
 
-The system must not store email, notes, attachments, or vault contents in GitHub.
-
-This applies to:
-
-https://github.sec.samsung.net
-
-The internal GitHub Enterprise instance may be used for source code only.
+The system must not store email, notes, attachments, or vault contents in the source repository.
 
 Acceptance criteria:
 
@@ -1487,11 +1473,7 @@ Reasonable logging and error handling.
 
 12. Recommended Repository Structure
 
-The source code may be stored in internal GitHub Enterprise because it is code only. The vault data must not be stored in the repository.
-
-Repository remote:
-
-https://github.sec.samsung.net/<org>/<repo>
+The source code may be stored in a source repository. The vault data must not be stored in the repository.
 
 Recommended repository name:
 
@@ -2558,4 +2540,4 @@ When implementing this project, prioritize the following order:
 
 
 
-Do not use GitHub as a storage backend for vault data. The internal GitHub Enterprise instance at https://github.sec.samsung.net may be used only for the source code repository.
+Do not use the source repository as a storage backend for vault data.

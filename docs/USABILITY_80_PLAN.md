@@ -47,7 +47,6 @@
 
 완성도 개선 중에도 아래는 변경하지 않는다.
 
-- GitHub/GitHub Enterprise를 vault 또는 개인 지식 데이터 저장소로 사용하지 않는다.
 - 외부 SaaS, Obsidian Sync, Obsidian Publish, Microsoft Graph API 의존성을 추가하지 않는다.
 - Cline/Codex용 API는 read-only로 유지한다.
 - 실제 이메일, 실제 첨부파일, 실제 vault 데이터는 저장소에 넣지 않는다.

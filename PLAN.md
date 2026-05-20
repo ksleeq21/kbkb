@@ -22,7 +22,7 @@
 - `find` 또는 동등한 명령으로 권장 디렉터리 구조가 존재함을 확인한다.
 - `.gitignore`에 `KnowledgeVault/`, `vault/`, `90_Attachments/`, `*.msg`, `*.sqlite`, `.env`, `config.yaml`, 로그/상태 디렉터리가 포함되어 있다.
 - 저장소 안에 실제 이메일, 실제 첨부파일, 실제 vault 데이터, 실제 토큰 또는 SSH 키가 없다.
-- README에 GitHub/GitHub Enterprise는 소스 코드 저장소로만 사용하고 개인 지식 데이터 저장소로 사용하지 않는다는 경고가 포함되어 있다.
+- README에 저장소에 실제 이메일, 첨부파일, vault 데이터, 토큰 또는 SSH 키를 저장하지 않는다는 경고가 포함되어 있다.
 
 ## Story 2: Windows 설정, 로깅, 상태 저장 기반 구현
 
