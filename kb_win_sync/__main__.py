@@ -419,7 +419,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "command",
         nargs="?",
-        choices=["import", "validate-config", "status", "doctor", "init-config", "list-mailboxes"],
+        choices=["import", "sync", "validate-config", "status", "doctor", "init-config", "list-mailboxes"],
         default="import",
     )
     parser.add_argument("--config")
@@ -473,14 +473,16 @@ def main(argv: list[str] | None = None) -> int:
         print("\n".join(lines))
         return 0 if ok else 2
 
-    if not config.folders and not args.sync_only:
+    sync_only = args.sync_only or args.command == "sync"
+
+    if not config.folders and not sync_only:
         print(f"ERROR: no Outlook folders configured. Run: kb-win-sync list-mailboxes --config {args.config}", file=sys.stderr)
         return 2
 
     _configure_logging(config.log_path, verbose=args.verbose)
     logging.info("Using config=%s log_path=%s", args.config, config.log_path)
 
-    if not args.sync_only:
+    if not sync_only:
         try:
             client = OutlookClient()
         except OutlookUnavailable as exc:

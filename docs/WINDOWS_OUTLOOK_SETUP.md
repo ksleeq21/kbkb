@@ -131,6 +131,12 @@ dry-run 결과가 올바르면 다음을 실행한다.
 kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
 
+현재 Windows vault 파일만 Linux로 다시 업로드해야 하면 Outlook import를 건너뛰는 SFTP-only 명령을 사용한다.
+
+```powershell
+kb-win-sync sync --config "$env:USERPROFILE\kb-win-sync\config.yaml"
+```
+
 실행 중에는 콘솔과 `log_path`에 INFO 로그가 함께 기록된다. 로그에는 config/log path, Outlook client 초기화, folder scan 시작/완료, `Processing message 3/42 folder=...` 같은 folder별 진행률, message import/duplicate skip, attachment와 `.msg` 저장, 최종 summary가 포함된다. 더 자세한 로그가 필요하면 `--verbose`를 추가한다.
 
 확인할 내용:

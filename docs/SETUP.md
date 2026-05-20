@@ -254,6 +254,12 @@ kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml" --dry-run
 kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
 
+Outlook import를 건너뛰고 현재 Windows vault 파일만 Linux raw vault로 업로드하려면 SFTP-only 명령을 사용한다.
+
+```powershell
+kb-win-sync sync --config "$env:USERPROFILE\kb-win-sync\config.yaml"
+```
+
 ### Windows Task Scheduler 설정
 
 자세한 Outlook folder 선택과 Task Scheduler GUI 단계는 `docs/WINDOWS_OUTLOOK_SETUP.md`를 참고한다.
@@ -290,6 +296,8 @@ test -w /home/your-linux-user/kb/KnowledgeVault-Raw
 SSH, remote path, permission이 확인될 때까지 `sync.enabled: false`를 유지한다. GitHub를 sync backend로 사용하지 않는다.
 
 `kb_win_sync`는 raw vault로 sync해야 한다. Linux Cline CLI enrichment 단계는 raw vault를 읽고 별도의 enriched vault를 써야 한다. `kb_api.vault_path`는 enriched vault로 설정한다.
+
+`kb-win-sync sync --config <config>`는 Outlook COM import를 실행하지 않고 `vault_path` 아래 변경 파일만 SFTP로 업로드한다. 기존 `--sync-only` option도 같은 용도로 유지된다.
 
 ## Upgrade 절차
 
