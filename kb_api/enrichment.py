@@ -4,7 +4,6 @@ import json
 import logging
 import re
 import shutil
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -12,6 +11,7 @@ from typing import Any
 from kb_win_sync.simple_yaml import dump_frontmatter
 
 from .config import ApiConfig
+from .enrichment_providers import ClineCliMetadataProvider, MetadataProvider
 from .frontmatter import parse_markdown
 from .scanner import scan_markdown
 
@@ -56,6 +56,7 @@ def enrich_vault(
     *,
     use_cache_only: bool = False,
     cline_command: str = "cline",
+    metadata_provider: MetadataProvider | None = None,
     raw_file_path: str | Path | None = None,
     verbose: bool = False,
 ) -> EnrichmentStats:
@@ -74,13 +75,15 @@ def enrich_vault(
     if not raw_root.exists() or not raw_root.is_dir():
         raise ValueError(f"raw_vault_path does not exist or is not a directory: {raw_root}")
 
+    provider = metadata_provider or ClineCliMetadataProvider(cline_command)
     logger.debug(
-        "ENRICH_START raw_root=%s enriched_root=%s cache_root=%s single_file=%s use_cache_only=%s cline_command=%s",
+        "ENRICH_START raw_root=%s enriched_root=%s cache_root=%s single_file=%s use_cache_only=%s provider=%s cline_command=%s",
         raw_root,
         enriched_root,
         cache_root,
         raw_file_path or "(all)",
         use_cache_only,
+        type(provider).__name__,
         cline_command,
     )
     copied = 0 if raw_file_path is not None else _copy_non_markdown_files(raw_root, enriched_root, config.ignore_dirs)
@@ -95,7 +98,7 @@ def enrich_vault(
         stage = "load_metadata"
         try:
             logger.debug("ENRICH_FILE_START rel=%s raw=%s", rel.as_posix(), raw_file)
-            metadata = _load_or_create_metadata(raw_file, cache_root / rel.with_suffix(".metadata.json"), use_cache_only, cline_command)
+            metadata = _load_or_create_metadata(raw_file, cache_root / rel.with_suffix(".metadata.json"), use_cache_only, provider)
             logger.debug("ENRICH_METADATA_LOADED rel=%s keys=%s", rel.as_posix(), sorted(metadata.keys()))
             stage = "read_raw_markdown"
             raw_text = raw_file.read_text(encoding="utf-8")
@@ -174,7 +177,7 @@ def validate_llm_metadata(data: dict[str, Any]) -> dict[str, Any]:
     return accepted
 
 
-def _load_or_create_metadata(raw_file: Path, cache_file: Path, use_cache_only: bool, cline_command: str) -> dict[str, Any]:
+def _load_or_create_metadata(raw_file: Path, cache_file: Path, use_cache_only: bool, metadata_provider: MetadataProvider) -> dict[str, Any]:
     if cache_file.exists():
         logger.debug("ENRICH_CACHE_HIT raw=%s cache=%s", raw_file, cache_file)
         return json.loads(cache_file.read_text(encoding="utf-8"))
@@ -182,168 +185,11 @@ def _load_or_create_metadata(raw_file: Path, cache_file: Path, use_cache_only: b
         logger.debug("ENRICH_CACHE_MISSING raw=%s cache=%s use_cache_only=true", raw_file, cache_file)
         raise ValueError(f"missing cached metadata: {cache_file}")
     logger.debug("ENRICH_CACHE_MISSING raw=%s cache=%s use_cache_only=false", raw_file, cache_file)
-    metadata = _call_cline_for_metadata(raw_file.read_text(encoding="utf-8"), cline_command)
+    metadata = metadata_provider.generate_metadata(raw_file.read_text(encoding="utf-8"))
     cache_file.parent.mkdir(parents=True, exist_ok=True)
     cache_file.write_text(json.dumps(metadata, ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8")
     logger.debug("ENRICH_CACHE_WRITTEN raw=%s cache=%s keys=%s", raw_file, cache_file, sorted(metadata.keys()))
     return metadata
-
-
-def _call_cline_for_metadata(raw_markdown: str, cline_command: str) -> dict[str, Any]:
-    prompt = (
-        "Return exactly one JSON object with only these optional keys: "
-        "tags, llm_tags, llm_summary. Do not include source metadata such as "
-        "type, source, subject, from, to, dates, source_id, message_id, conversation_id, attachments, or folder. "
-        "Use evidence from this raw Markdown only.\n\n"
-        + raw_markdown
-    )
-    args = cline_command.split() + ["--json", prompt]
-    logger.debug("ENRICH_CLINE_START command=%s prompt_chars=%s", cline_command, len(prompt))
-    completed = subprocess.run(args, text=True, capture_output=True, timeout=120, check=False)
-    if completed.returncode != 0:
-        logger.debug("ENRICH_CLINE_FAILED returncode=%s stderr_chars=%s", completed.returncode, len(completed.stderr or ""))
-        raise RuntimeError(completed.stderr.strip() or "cline command failed")
-    logger.debug("ENRICH_CLINE_DONE stdout_chars=%s stderr_chars=%s", len(completed.stdout or ""), len(completed.stderr or ""))
-    return _parse_json_object(completed.stdout)
-
-
-def _parse_json_object(text: str) -> dict[str, Any]:
-    stripped = text.strip()
-    logger.debug("ENRICH_PARSE_START chars=%s lines=%s", len(stripped), len(stripped.splitlines()))
-    try:
-        parsed = json.loads(stripped)
-        logger.debug("ENRICH_PARSE_WHOLE_JSON type=%s", type(parsed).__name__)
-        result = _metadata_from_parsed_json(parsed)
-        if result is not None:
-            logger.debug("ENRICH_PARSE_WHOLE_JSON_OK keys=%s", sorted(result.keys()))
-            return result
-    except json.JSONDecodeError as exc:
-        logger.debug("ENRICH_PARSE_WHOLE_JSON_FAILED error=%s", exc)
-
-    messages: list[dict[str, Any]] = []
-    for line in reversed(stripped.splitlines()):
-        try:
-            parsed = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if isinstance(parsed, list):
-            messages.extend(item for item in parsed if isinstance(item, dict))
-            logger.debug("ENRICH_PARSE_LINE_JSON_LIST count=%s", len(parsed))
-            continue
-        if isinstance(parsed, dict):
-            messages.append(parsed)
-            logger.debug(
-                "ENRICH_PARSE_LINE_JSON_DICT type=%s say=%s keys=%s",
-                parsed.get("type", ""),
-                parsed.get("say", ""),
-                sorted(parsed.keys()),
-            )
-            result = _metadata_from_direct_dict(parsed)
-            if result is not None:
-                logger.debug("ENRICH_PARSE_LINE_DIRECT_OK keys=%s", sorted(result.keys()))
-                return result
-    result = _metadata_from_cline_messages(messages)
-    if result is not None:
-        logger.debug("ENRICH_PARSE_MESSAGES_OK keys=%s", sorted(result.keys()))
-        return result
-    raise json.JSONDecodeError("No JSON object found in cline output", text, 0)
-
-
-def _metadata_from_parsed_json(parsed: Any) -> dict[str, Any] | None:
-    if isinstance(parsed, dict):
-        if isinstance(parsed.get("messages"), list):
-            logger.debug("ENRICH_PARSE_WRAPPER_MESSAGES count=%s", len(parsed["messages"]))
-            return _metadata_from_cline_messages([item for item in parsed["messages"] if isinstance(item, dict)])
-        return _metadata_from_direct_dict(parsed)
-    if isinstance(parsed, list):
-        logger.debug("ENRICH_PARSE_ARRAY_MESSAGES count=%s", len(parsed))
-        return _metadata_from_cline_messages([item for item in parsed if isinstance(item, dict)])
-    return None
-
-
-def _metadata_from_direct_dict(parsed: dict[str, Any]) -> dict[str, Any] | None:
-    if isinstance(parsed.get("metadata"), dict):
-        return parsed["metadata"]
-    if isinstance(parsed.get("result"), dict):
-        return parsed["result"]
-    if set(parsed).issubset(ALLOWED_METADATA_KEYS | FORBIDDEN_METADATA_KEYS):
-        return parsed
-    return None
-
-
-def _metadata_from_cline_messages(messages: list[dict[str, Any]]) -> dict[str, Any] | None:
-    logger.debug("ENRICH_PARSE_MESSAGES_SCAN count=%s", len(messages))
-    for message in reversed(messages):
-        if message.get("type") == "say" and message.get("say") == "completion_result":
-            text = str(message.get("text", "") or "")
-            logger.debug("ENRICH_PARSE_COMPLETION_RESULT_FOUND text_chars=%s", len(text))
-            return _parse_json_text_payload(text)
-    logger.debug("ENRICH_PARSE_COMPLETION_RESULT_MISSING")
-    return None
-
-
-def _parse_json_text_payload(text: str) -> dict[str, Any]:
-    payload = _strip_json_fence(text.strip())
-    logger.debug("ENRICH_PARSE_TEXT_PAYLOAD chars=%s", len(payload))
-    try:
-        parsed = json.loads(payload)
-        logger.debug("ENRICH_PARSE_TEXT_JSON_OK type=%s", type(parsed).__name__)
-        result = _metadata_from_parsed_json(parsed)
-        if result is not None:
-            return result
-    except json.JSONDecodeError as exc:
-        logger.debug("ENRICH_PARSE_TEXT_JSON_FAILED error=%s", exc)
-    extracted = _extract_first_json_object(payload)
-    if extracted is None:
-        logger.debug("ENRICH_PARSE_TEXT_EXTRACT_FAILED")
-        raise json.JSONDecodeError("No JSON object found in completion_result text", text, 0)
-    logger.debug("ENRICH_PARSE_TEXT_EXTRACTED chars=%s", len(extracted))
-    parsed = json.loads(extracted)
-    result = _metadata_from_parsed_json(parsed)
-    if result is None:
-        raise json.JSONDecodeError("completion_result text did not contain metadata JSON object", text, 0)
-    return result
-
-
-def _strip_json_fence(text: str) -> str:
-    if not text.startswith("```"):
-        return text
-    lines = text.splitlines()
-    if lines and lines[0].strip().startswith("```"):
-        lines = lines[1:]
-    if lines and lines[-1].strip() == "```":
-        lines = lines[:-1]
-    stripped = "\n".join(lines).strip()
-    logger.debug("ENRICH_PARSE_FENCE_STRIPPED before_chars=%s after_chars=%s", len(text), len(stripped))
-    return stripped
-
-
-def _extract_first_json_object(text: str) -> str | None:
-    start = text.find("{")
-    if start == -1:
-        return None
-    depth = 0
-    in_string = False
-    escape = False
-    for index in range(start, len(text)):
-        ch = text[index]
-        if in_string:
-            if escape:
-                escape = False
-            elif ch == "\\":
-                escape = True
-            elif ch == '"':
-                in_string = False
-            continue
-        if ch == '"':
-            in_string = True
-        elif ch == "{":
-            depth += 1
-        elif ch == "}":
-            depth -= 1
-            if depth == 0:
-                return text[start : index + 1]
-    return None
 
 
 def _copy_non_markdown_files(raw_root: Path, enriched_root: Path, ignore_dirs: list[str]) -> int:

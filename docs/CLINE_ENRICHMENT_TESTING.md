@@ -10,6 +10,8 @@
 - `cline` CLI가 shell에서 실행 가능하다.
 - `kb-api` config의 `raw_vault_path`, `enriched_vault_path`, `enrichment_cache_path`가 설정되어 있다.
 
+현재 기본 metadata provider는 Cline CLI다. `kb_api.enrichment`의 vault/cache/render 흐름은 provider interface만 호출하므로, 이후 REST API 기반 provider를 추가하더라도 raw Markdown 처리와 validation 흐름은 그대로 유지한다.
+
 예시에서는 raw vault 기준 상대 경로를 사용한다.
 
 ```bash

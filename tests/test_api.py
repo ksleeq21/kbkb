@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import tempfile
 import threading
@@ -8,7 +9,8 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from kb_api.config import ApiConfig, load_config
-from kb_api.enrichment import _parse_json_object, enrich_vault, render_enriched_markdown, validate_llm_metadata
+from kb_api.enrichment import enrich_vault, render_enriched_markdown, validate_llm_metadata
+from kb_api.enrichment_providers import parse_metadata_json
 from kb_api.frontmatter import parse_markdown
 from kb_api.indexer import index_status, read_by_path, reindex, safe_relative_path, search
 from kb_api.scanner import scan_markdown
@@ -125,6 +127,42 @@ class ApiTests(unittest.TestCase):
             self.assertFalse(os.path.exists(os.path.join(enriched, "20_Emails", "ProjectA", "second.md")))
             self.assertFalse(os.path.exists(os.path.join(enriched, "90_Attachments", "email", "abc", "report.txt")))
 
+    def test_enrichment_can_use_injected_metadata_provider(self) -> None:
+        class FakeProvider:
+            def __init__(self) -> None:
+                self.calls = 0
+
+            def generate_metadata(self, raw_markdown: str) -> dict:
+                self.calls += 1
+                self.raw_markdown = raw_markdown
+                return {"tags": ["provider"], "llm_summary": "provider summary"}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            raw = os.path.join(tmp, "raw")
+            enriched = os.path.join(tmp, "enriched")
+            cache = os.path.join(tmp, "cache")
+            os.makedirs(os.path.join(raw, "20_Emails", "ProjectA"))
+            raw_note = os.path.join(raw, "20_Emails", "ProjectA", "email.md")
+            with open(raw_note, "w", encoding="utf-8") as fh:
+                fh.write("---\ntype: \"email\"\ntags:\n  - \"email\"\n---\n# Provider\n본문")
+
+            provider = FakeProvider()
+            config = ApiConfig(
+                vault_path=enriched,
+                database_path=os.path.join(tmp, "kb.sqlite"),
+                raw_vault_path=raw,
+                enriched_vault_path=enriched,
+                enrichment_cache_path=cache,
+            )
+            stats = enrich_vault(config, metadata_provider=provider, raw_file_path="20_Emails/ProjectA/email.md")
+
+            self.assertEqual(stats.enriched_notes, 1)
+            self.assertEqual(provider.calls, 1)
+            self.assertIn("# Provider", provider.raw_markdown)
+            cache_file = os.path.join(cache, "20_Emails", "ProjectA", "email.metadata.json")
+            with open(cache_file, encoding="utf-8") as fh:
+                self.assertEqual(json.loads(fh.read())["tags"], ["provider"])
+
     def test_enrichment_rejects_unsafe_single_file_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             raw = os.path.join(tmp, "raw")
@@ -150,7 +188,7 @@ class ApiTests(unittest.TestCase):
                 '{"type":"say","say":"completion_result","text":"```json\\n{\\n  \\"tags\\": [\\"BART\\"],\\n  \\"llm_summary\\": \\"BART 관련 이메일\\"\\n}\\n```"}',
             ]
         )
-        self.assertEqual(_parse_json_object(stdout), {"tags": ["BART"], "llm_summary": "BART 관련 이메일"})
+        self.assertEqual(parse_metadata_json(stdout), {"tags": ["BART"], "llm_summary": "BART 관련 이메일"})
 
     def test_cline_event_stream_parser_accepts_unfenced_completion_text(self) -> None:
         stdout = "\n".join(
@@ -159,7 +197,7 @@ class ApiTests(unittest.TestCase):
                 '{"type":"say","say":"completion_result","text":"{\\"tags\\":[\\"BART\\"],\\"llm_tags\\":[\\"transit\\"]}"}',
             ]
         )
-        self.assertEqual(_parse_json_object(stdout), {"tags": ["BART"], "llm_tags": ["transit"]})
+        self.assertEqual(parse_metadata_json(stdout), {"tags": ["BART"], "llm_tags": ["transit"]})
 
     def test_cline_event_stream_parser_accepts_messages_wrapper(self) -> None:
         stdout = (
@@ -168,11 +206,11 @@ class ApiTests(unittest.TestCase):
             '{"type":"say","say":"completion_result","text":"```json\\n{\\"tags\\":[\\"BART\\"]}\\n```"}'
             ']}'
         )
-        self.assertEqual(_parse_json_object(stdout), {"tags": ["BART"]})
+        self.assertEqual(parse_metadata_json(stdout), {"tags": ["BART"]})
 
     def test_cline_event_stream_parser_extracts_json_from_extra_text(self) -> None:
         stdout = '{"type":"say","say":"completion_result","text":"Here is the JSON:\\n{\\"tags\\":[\\"BART\\"]}\\nDone."}'
-        self.assertEqual(_parse_json_object(stdout), {"tags": ["BART"]})
+        self.assertEqual(parse_metadata_json(stdout), {"tags": ["BART"]})
 
     def test_enrichment_rejects_source_metadata_changes(self) -> None:
         with self.assertRaises(ValueError):
