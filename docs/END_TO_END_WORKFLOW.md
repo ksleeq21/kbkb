@@ -250,7 +250,7 @@ kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 Outlook import를 다시 하지 않고 현재 Windows vault 파일만 Linux raw vault로 업로드하려면 다음을 실행한다.
 
 ```powershell
-kb-win-sync sync --config "$env:USERPROFILE\kb-win-sync\config.yaml"
+kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml" --sync-only
 ```
 
 생성되는 vault 구조 예:

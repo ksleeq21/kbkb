@@ -38,7 +38,7 @@ kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 6. Outlook import 없이 현재 Windows vault 파일만 Linux로 다시 업로드해야 하면 SFTP-only 명령을 실행한다.
 
 ```powershell
-kb-win-sync sync --config "$env:USERPROFILE\kb-win-sync\config.yaml"
+kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml" --sync-only
 ```
 
 7. Task Scheduler에서 `examples/run-kb-win-sync.bat`를 매일 실행한다. Outlook COM이 background session에서 시작되지 않으면 "Run only when user is logged on"을 선택한다.

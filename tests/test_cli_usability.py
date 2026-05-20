@@ -125,7 +125,7 @@ class CliUsabilityTests(unittest.TestCase):
             import_result = self.run_cmd([sys.executable, "-m", "kb_win_sync", "--config", str(output), "--dry-run"])
             self.assertEqual(import_result.returncode, 2)
             self.assertIn("no Outlook folders configured", import_result.stderr)
-            sync_result = self.run_cmd([sys.executable, "-m", "kb_win_sync", "sync", "--config", str(output)])
+            sync_result = self.run_cmd([sys.executable, "-m", "kb_win_sync", "--config", str(output), "--sync-only"])
             self.assertEqual(sync_result.returncode, 0, sync_result.stderr + sync_result.stdout)
             self.assertIn("Starting SFTP sync enabled=False", sync_result.stdout)
             self.assertIn("SFTP sync uploaded 0 files", sync_result.stdout)

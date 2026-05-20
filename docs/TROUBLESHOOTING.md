@@ -33,7 +33,7 @@ kb-api validate-config --config ~/.config/kb-api/config.yaml
 | 특정 email만 import 실패 | Outlook 문자열/파일명/인코딩/첨부 저장 문제 | `Select-String FAILED_EMAIL <log_path>` | `FAILED_EMAIL` 로그의 folder, message_index, key, subject, sender, received, target을 보고 해당 email을 이동하거나 제외한다. 나머지 email은 계속 처리된다 |
 | dry-run에 너무 많은 email이 보임 | folder whitelist가 너무 넓음 | `outlook.folders` 확인 | Inbox 대신 전용 `_KB` folder를 사용한다 |
 | 중복 email이 skip됨 | state file에 message key가 이미 기록됨 | `kb-win-sync status --config <config>` | 정상 동작이다. 의도한 경우에만 `--force`를 사용한다 |
-| SFTP 연결 실패 | SSH key, username, host, remote path 문제 | Windows에서 `ssh user@host` 또는 `kb-win-sync sync --config <config>` | sync를 켜기 전에 key, host, remote path, permission을 고친다 |
+| SFTP 연결 실패 | SSH key, username, host, remote path 문제 | Windows에서 `ssh user@host` 또는 `kb-win-sync --config <config> --sync-only` | sync를 켜기 전에 key, host, remote path, permission을 고친다 |
 | Linux service는 시작되지만 API에 접근할 수 없음 | service path/env 불일치 | `journalctl --user -u kb-api.service -f` | `WorkingDirectory`, `ExecStart`, `EnvironmentFile`을 고친다 |
 | token 값이 log에 나타남 | 안전하지 않은 wrapper 또는 수동 logging | local log 검색 | token echo를 제거하고 token을 교체한다 |
 

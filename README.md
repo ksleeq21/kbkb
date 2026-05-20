@@ -50,7 +50,7 @@ kb-win-sync doctor --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 
 Outlook folder path, mailbox selection, Task Scheduler 설정이 불명확하면 [docs/WINDOWS_OUTLOOK_SETUP.md](docs/WINDOWS_OUTLOOK_SETUP.md)를 사용한다. 이 문서는 Windows 전용 setup guide다.
 
-SFTP sync를 켤 때 `sync.key_path`에 넣을 SSH key를 만들거나 확인해야 하면 [docs/WINDOWS_SSH_KEY_SETUP.md](docs/WINDOWS_SSH_KEY_SETUP.md)를 사용한다. Outlook import 없이 현재 Windows vault만 Linux로 업로드하려면 `kb-win-sync sync --config "$env:USERPROFILE\kb-win-sync\config.yaml"`를 실행한다.
+SFTP sync를 켤 때 `sync.key_path`에 넣을 SSH key를 만들거나 확인해야 하면 [docs/WINDOWS_SSH_KEY_SETUP.md](docs/WINDOWS_SSH_KEY_SETUP.md)를 사용한다. Outlook import 없이 현재 Windows vault만 Linux로 업로드하려면 `kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml" --sync-only`를 실행한다.
 
 ## Linux 설치
 
@@ -130,7 +130,7 @@ kb-win-sync doctor --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 kb-win-sync status --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml" --dry-run
 kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml"
-kb-win-sync sync --config "$env:USERPROFILE\kb-win-sync\config.yaml"
+kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml" --sync-only
 ```
 
 설정된 Outlook folder만 scan한다. 설정되지 않은 folder는 무시한다.
