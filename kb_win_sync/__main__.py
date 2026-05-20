@@ -38,10 +38,12 @@ def _configure_logging(log_path: Path, *, verbose: bool) -> None:
     level = logging.DEBUG if verbose else logging.INFO
     formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
     root = logging.getLogger()
+    for handler in root.handlers:
+        handler.close()
     root.handlers.clear()
     root.setLevel(level)
 
-    file_handler = logging.FileHandler(log_path, encoding="utf-8")
+    file_handler = logging.FileHandler(log_path, encoding="utf-8", errors="backslashreplace")
     file_handler.setLevel(level)
     file_handler.setFormatter(formatter)
     root.addHandler(file_handler)
@@ -50,6 +52,27 @@ def _configure_logging(log_path: Path, *, verbose: bool) -> None:
     console_handler.setLevel(level)
     console_handler.setFormatter(formatter)
     root.addHandler(console_handler)
+
+
+def _safe_text(value: object, *, limit: int = 500) -> str:
+    text = str(value)
+    text = text.encode("utf-8", errors="backslashreplace").decode("utf-8", errors="replace")
+    text = text.replace("\r", "\\r").replace("\n", "\\n")
+    if len(text) > limit:
+        return text[:limit] + "...(truncated)"
+    return text
+
+
+def _failed_email_context(folder_name: str, folder_index: int, total_label: str, email: object | None, key: str = "", target: str = "") -> str:
+    return (
+        f"folder={_safe_text(folder_name)} "
+        f"message_index={folder_index}/{total_label} "
+        f"key={_safe_text(key or '(unknown)')} "
+        f"subject={_safe_text(getattr(email, 'subject', '(unavailable)') if email is not None else '(unavailable)')!r} "
+        f"sender={_safe_text(getattr(email, 'sender', '(unavailable)') if email is not None else '(unavailable)')!r} "
+        f"received={_safe_text(getattr(email, 'received', '(unavailable)') if email is not None else '(unavailable)')!r} "
+        f"target={_safe_text(target or '(unknown)')}"
+    )
 
 
 def _write_config_template(output_arg: str | None, *, force: bool) -> int:
@@ -307,28 +330,36 @@ def run_import(
         )
         for folder_index, email in enumerate(client.iter_folder_messages(folder), start=1):
             summary["scanned"] += 1
-            path = target_path(email, folder.target_folder)
-            key = message_key(email)
-            logging.info(
-                "Processing message %s/%s folder=%s key=%s subject=%r target=%s",
-                folder_index,
-                total_label,
-                folder.name,
-                key,
-                email.subject,
-                path,
-            )
-            if key in state.imported and not force:
-                summary["skipped_duplicate"] += 1
-                logging.info("Skipped duplicate message key=%s subject=%r target=%s", key, email.subject, path)
-                if dry_run:
-                    print(f"skip duplicate key={key} subject={email.subject!r} target={path}")
-                continue
-            if dry_run:
-                logging.info("Dry-run would import message key=%s subject=%r target=%s", key, email.subject, path)
-                print(f"import key={key} sender={email.sender!r} received={email.received!r} subject={email.subject!r} target={path}")
-                continue
+            path = ""
+            key = ""
             try:
+                path = target_path(email, folder.target_folder)
+                key = message_key(email)
+                logging.info(
+                    "Processing message %s/%s folder=%s key=%s subject=%r target=%s",
+                    folder_index,
+                    total_label,
+                    folder.name,
+                    key,
+                    _safe_text(email.subject),
+                    path,
+                )
+                if key in state.imported and not force:
+                    summary["skipped_duplicate"] += 1
+                    logging.info("Skipped duplicate message key=%s subject=%r target=%s", key, _safe_text(email.subject), path)
+                    if dry_run:
+                        print(f"skip duplicate key={key} subject={_safe_text(email.subject)!r} target={path}")
+                    continue
+                if dry_run:
+                    logging.info("Dry-run would import message key=%s subject=%r target=%s", key, _safe_text(email.subject), path)
+                    print(
+                        f"import key={key} "
+                        f"sender={_safe_text(email.sender)!r} "
+                        f"received={_safe_text(email.received)!r} "
+                        f"subject={_safe_text(email.subject)!r} "
+                        f"target={path}"
+                    )
+                    continue
                 email, attachments_saved, msg_saved = save_email_artifacts(
                     email,
                     config.vault_path,
@@ -345,14 +376,19 @@ def run_import(
                 logging.info(
                     "Imported message key=%s subject=%r target=%s attachments_saved=%s msg_saved=%s",
                     key,
-                    email.subject,
+                    _safe_text(email.subject),
                     path,
                     attachments_saved,
                     msg_saved,
                 )
-            except OSError as exc:
+            except Exception as exc:
                 summary["failed"] += 1
-                logging.error("Import failed for message_key=%s target=%s error=%s", key, path, exc)
+                logging.exception(
+                    "FAILED_EMAIL action=skip error_type=%s error=%s %s",
+                    type(exc).__name__,
+                    _safe_text(exc),
+                    _failed_email_context(folder.name, folder_index, total_label, email, key, path),
+                )
         logging.info(
             "Folder complete name=%s scanned=%s imported=%s skipped_duplicate=%s failed=%s",
             folder.name,

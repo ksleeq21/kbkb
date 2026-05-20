@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable
 from dataclasses import dataclass
 
@@ -30,23 +31,33 @@ class OutlookClient:
 
     def iter_folder_messages(self, folder: OutlookFolderConfig) -> Iterable[EmailMessage]:
         outlook_folder = self._resolve_folder(folder.outlook_path)
-        for item in outlook_folder.Items:
-            if getattr(item, "Class", None) != 43:  # olMail
+        for index, item in enumerate(outlook_folder.Items, start=1):
+            try:
+                if getattr(item, "Class", None) != 43:  # olMail
+                    continue
+                yield EmailMessage(
+                    subject=str(getattr(item, "Subject", "") or ""),
+                    sender=str(getattr(item, "SenderEmailAddress", "") or getattr(item, "SenderName", "") or ""),
+                    to=[part.strip() for part in str(getattr(item, "To", "") or "").split(";") if part.strip()],
+                    cc=[part.strip() for part in str(getattr(item, "CC", "") or "").split(";") if part.strip()],
+                    received=str(getattr(item, "ReceivedTime", "") or ""),
+                    body=str(getattr(item, "Body", "") or ""),
+                    folder=folder.outlook_path,
+                    conversation_id=str(getattr(item, "ConversationID", "") or ""),
+                    message_id=_property(item, "http://schemas.microsoft.com/mapi/proptag/0x1035001E"),
+                    tags=folder.tags,
+                    attachments=[EmailAttachment(str(att.FileName), saver=_attachment_saver(att)) for att in getattr(item, "Attachments", [])],
+                    original_msg_saver=_message_saver(item),
+                )
+            except Exception as exc:
+                logging.exception(
+                    "FAILED_EMAIL action=skip stage=outlook_read folder=%s message_index=%s error_type=%s error=%s",
+                    _safe_log_text(folder.name),
+                    index,
+                    type(exc).__name__,
+                    _safe_log_text(exc),
+                )
                 continue
-            yield EmailMessage(
-                subject=str(getattr(item, "Subject", "") or ""),
-                sender=str(getattr(item, "SenderEmailAddress", "") or getattr(item, "SenderName", "") or ""),
-                to=[part.strip() for part in str(getattr(item, "To", "") or "").split(";") if part.strip()],
-                cc=[part.strip() for part in str(getattr(item, "CC", "") or "").split(";") if part.strip()],
-                received=str(getattr(item, "ReceivedTime", "") or ""),
-                body=str(getattr(item, "Body", "") or ""),
-                folder=folder.outlook_path,
-                conversation_id=str(getattr(item, "ConversationID", "") or ""),
-                message_id=_property(item, "http://schemas.microsoft.com/mapi/proptag/0x1035001E"),
-                tags=folder.tags,
-                attachments=[EmailAttachment(str(att.FileName), saver=_attachment_saver(att)) for att in getattr(item, "Attachments", [])],
-                original_msg_saver=_message_saver(item),
-            )
 
     def count_folder_items(self, folder: OutlookFolderConfig) -> int | None:
         outlook_folder = self._resolve_folder(folder.outlook_path)
@@ -101,6 +112,10 @@ def _property(item, uri: str) -> str:
         return str(item.PropertyAccessor.GetProperty(uri) or "")
     except Exception:
         return ""
+
+
+def _safe_log_text(value: object) -> str:
+    return str(value).encode("utf-8", errors="backslashreplace").decode("utf-8", errors="replace")
 
 
 def _attachment_saver(attachment):

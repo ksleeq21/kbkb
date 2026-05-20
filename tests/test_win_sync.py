@@ -298,6 +298,63 @@ sync:
             self.assertIn("Import summary selected_folders=1", log_text)
             self.assertIn("Saved import state", log_text)
 
+    def test_run_import_skips_email_with_unencodable_surrogate_and_continues(self) -> None:
+        class FakeClient:
+            def count_folder_items(self, folder: OutlookFolderConfig) -> int:
+                return 2
+
+            def iter_folder_messages(self, folder: OutlookFolderConfig):
+                return [
+                    EmailMessage(
+                        subject="Bad surrogate \udc8c",
+                        sender="Kim <kim@example.test>",
+                        received="2026-05-19T09:15:00+09:00",
+                        body="body",
+                        message_id="bad-surrogate-message",
+                    ),
+                    EmailMessage(
+                        subject="Good message",
+                        sender="Kim <kim@example.test>",
+                        received="2026-05-19T09:16:00+09:00",
+                        body="body",
+                        message_id="good-message",
+                    ),
+                ]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config = WinConfig(
+                vault_path=root / "vault",
+                state_path=root / "state.json",
+                log_path=root / "sync.log",
+                folders=[
+                    OutlookFolderConfig(
+                        name="project-a",
+                        outlook_path="\\Mailbox\\Inbox\\_KB\\ProjectA",
+                        target_folder="20_Emails/ProjectA",
+                    )
+                ],
+                sync=SyncConfig(enabled=False),
+            )
+            with redirect_stdout(StringIO()):
+                _configure_logging(config.log_path, verbose=False)
+                summary = run_import(
+                    config,
+                    FakeClient(),
+                    dry_run=False,
+                    folder_filter=None,
+                    force=False,
+                    config_path=str(root / "config.yaml"),
+                )
+            self.assertEqual(summary["scanned"], 2)
+            self.assertEqual(summary["failed"], 1)
+            self.assertEqual(summary["imported"], 1)
+            log_text = config.log_path.read_text(encoding="utf-8")
+            self.assertIn("FAILED_EMAIL action=skip", log_text)
+            self.assertIn("error_type=", log_text)
+            self.assertIn("message_index=1/2", log_text)
+            self.assertIn("Good message", next((root / "vault").rglob("*.md")).read_text(encoding="utf-8"))
+
     def test_incremental_sync_manifest_tracks_changed_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
