@@ -83,6 +83,8 @@ sync:
 
 SSH private key나 local config file을 절대 커밋하지 않는다.
 
+Windows에서 새 key를 생성하고 Linux `authorized_keys`에 public key를 등록하는 절차는 `docs/WINDOWS_SSH_KEY_SETUP.md`를 참고한다.
+
 ## 설치
 
 먼저 source tree를 editable mode로 설치한다. 이렇게 하면 아래에서 사용하는 짧은 `kb-api`, `kb-win-sync` command가 노출된다.
@@ -273,6 +275,8 @@ script 안의 config path를 수정하거나 default path에 맞춘 뒤 `example
 ```powershell
 ssh your-linux-user@linux-dev.example.internal
 ```
+
+아직 SSH key를 만들지 않았다면 먼저 `docs/WINDOWS_SSH_KEY_SETUP.md`에 따라 Windows private key를 생성하고 Linux에 public key를 등록한다.
 
 Linux에서는 remote raw vault directory가 존재하고 writable인지 확인한다. `kb_api`가 사용하는 enriched vault directory도 만든다.
 

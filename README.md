@@ -49,6 +49,8 @@ kb-win-sync doctor --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 
 Outlook folder path, mailbox selection, Task Scheduler 설정이 불명확하면 [docs/WINDOWS_OUTLOOK_SETUP.md](docs/WINDOWS_OUTLOOK_SETUP.md)를 사용한다. 이 문서는 Windows 전용 setup guide다.
 
+SFTP sync를 켤 때 `sync.key_path`에 넣을 SSH key를 만들거나 확인해야 하면 [docs/WINDOWS_SSH_KEY_SETUP.md](docs/WINDOWS_SSH_KEY_SETUP.md)를 사용한다.
+
 ## Linux 설치
 
 API와 enriched vault를 호스팅할 Linux machine의 repository root에서 다음을 실행한다.
@@ -132,6 +134,8 @@ kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 Daily execution은 `examples/run-kb-win-sync.bat`와 Windows Task Scheduler를 사용할 수 있다. Outlook COM access가 interactive desktop을 필요로 하면 user가 logged in 상태일 때만 실행하도록 설정한다.
 
 Outlook을 사용할 수 없거나 folder를 찾지 못하거나 duplicate import가 보이거나 SFTP가 실패하면 [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)를 사용한다.
+
+SFTP sync를 활성화하기 전에 Windows SSH private key를 만들고 Linux에 public key를 등록해야 한다. `sync.key_path` 설정은 [docs/WINDOWS_SSH_KEY_SETUP.md](docs/WINDOWS_SSH_KEY_SETUP.md)를 참고한다.
 
 ## Linux API
 

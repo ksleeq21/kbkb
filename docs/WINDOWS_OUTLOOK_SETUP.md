@@ -28,6 +28,8 @@ notepad "$env:USERPROFILE\kb-win-sync\config.yaml"
 
 생성된 file은 template이다. `vault_path`, `outlook.folders`, 선택적 `sync`를 수정한다.
 
+SFTP sync를 사용할 경우 `sync.key_path`는 Windows에 있는 SSH private key file을 가리켜야 한다. key 생성과 Linux 등록 절차는 `docs/WINDOWS_SSH_KEY_SETUP.md`를 참고한다.
+
 ## Mailbox 대화형 목록
 
 `outlook.folders`를 손으로 수정하기 전에 mailbox picker를 사용한다.
@@ -175,4 +177,4 @@ schtasks /Delete /TN "kb-win-sync"
 - Outlook unavailable: classic Outlook을 사용하고 로그인된 상태에서 실행한다.
 - Too many messages in dry-run: `outlook.folders`를 `_KB` subfolder로 좁힌다.
 - Duplicate messages skipped: 성공적인 import 이후에는 정상이다. 의도한 경우에만 `--force`를 사용한다.
-- SFTP failure: SSH preflight가 성공할 때까지 `sync.enabled: false`를 유지한다.
+- SFTP failure: `docs/WINDOWS_SSH_KEY_SETUP.md`에 따라 SSH key와 `sync.key_path`를 확인하고, SSH preflight가 성공할 때까지 `sync.enabled: false`를 유지한다.
