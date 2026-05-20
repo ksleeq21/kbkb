@@ -291,19 +291,33 @@ def run_import(
         folder_imported_before = summary["imported"]
         folder_skipped_before = summary["skipped_duplicate"]
         folder_failed_before = summary["failed"]
+        try:
+            folder_total = client.count_folder_items(folder)
+        except AttributeError:
+            folder_total = None
+        total_label = str(folder_total) if folder_total is not None else "unknown"
         logging.info(
-            "Scanning Outlook folder name=%s outlook_path=%s target_folder=%s save_msg=%s save_attachments=%s",
+            "Scanning Outlook folder name=%s outlook_path=%s target_folder=%s total_items=%s save_msg=%s save_attachments=%s",
             folder.name,
             folder.outlook_path,
             folder.target_folder,
+            total_label,
             folder.save_msg,
             folder.save_attachments,
         )
-        for email in client.iter_folder_messages(folder):
+        for folder_index, email in enumerate(client.iter_folder_messages(folder), start=1):
             summary["scanned"] += 1
             path = target_path(email, folder.target_folder)
             key = message_key(email)
-            logging.info("Scanned message key=%s folder=%s subject=%r target=%s", key, folder.name, email.subject, path)
+            logging.info(
+                "Processing message %s/%s folder=%s key=%s subject=%r target=%s",
+                folder_index,
+                total_label,
+                folder.name,
+                key,
+                email.subject,
+                path,
+            )
             if key in state.imported and not force:
                 summary["skipped_duplicate"] += 1
                 logging.info("Skipped duplicate message key=%s subject=%r target=%s", key, email.subject, path)

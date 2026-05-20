@@ -187,6 +187,9 @@ sync:
 
     def test_run_import_dry_run_is_testable_without_outlook(self) -> None:
         class FakeClient:
+            def count_folder_items(self, folder: OutlookFolderConfig) -> int:
+                return 1
+
             def iter_folder_messages(self, folder: OutlookFolderConfig):
                 self.folder = folder
                 return [
@@ -232,6 +235,9 @@ sync:
 
     def test_run_import_logs_progress_to_console_and_file(self) -> None:
         class FakeClient:
+            def count_folder_items(self, folder: OutlookFolderConfig) -> int:
+                return 1
+
             def iter_folder_messages(self, folder: OutlookFolderConfig):
                 self.folder = folder
 
@@ -285,6 +291,8 @@ sync:
             console = output.getvalue()
             self.assertIn("Starting kb-win-sync import", console)
             self.assertIn("Scanning Outlook folder name=project-a", console)
+            self.assertIn("total_items=1", console)
+            self.assertIn("Processing message 1/1 folder=project-a", console)
             self.assertIn("Imported message key=", console)
             log_text = config.log_path.read_text(encoding="utf-8")
             self.assertIn("Import summary selected_folders=1", log_text)

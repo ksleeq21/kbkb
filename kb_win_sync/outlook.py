@@ -48,6 +48,13 @@ class OutlookClient:
                 original_msg_saver=_message_saver(item),
             )
 
+    def count_folder_items(self, folder: OutlookFolderConfig) -> int | None:
+        outlook_folder = self._resolve_folder(folder.outlook_path)
+        try:
+            return int(getattr(outlook_folder.Items, "Count"))
+        except Exception:
+            return None
+
     def list_mail_folders(self, max_depth: int = 6) -> list[OutlookFolderInfo]:
         folders: list[OutlookFolderInfo] = []
 
