@@ -168,6 +168,12 @@ kb-api status
 kb-api enrich --file "20_Emails/ProjectA/example.md"
 ```
 
+`failed`가 0이 아니면 실패한 파일과 stage가 stderr에 `ENRICH_FAILED`로 출력된다. 더 자세한 처리 흐름과 traceback이 필요하면 `--verbose`를 붙인다.
+
+```bash
+kb-api enrich --file "20_Emails/ProjectA/example.md" --verbose
+```
+
 4. API를 시작한다.
 
 ```bash

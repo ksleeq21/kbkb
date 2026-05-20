@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import secrets
 import sys
@@ -130,6 +131,11 @@ def _load_config_or_report(config_arg: str | None) -> tuple[ApiConfig | None, Pa
         return None, path, 2
 
 
+def _configure_logging(*, verbose: bool) -> None:
+    level = logging.DEBUG if verbose else logging.WARNING
+    logging.basicConfig(level=level, format="%(levelname)s %(message)s", stream=sys.stderr, force=True)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m kb_api")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -141,6 +147,7 @@ def main(argv: list[str] | None = None) -> int:
     enrich.add_argument("--use-cache-only", action="store_true")
     enrich.add_argument("--cline-command", default="cline")
     enrich.add_argument("--file", help="raw_vault_path-relative Markdown file to enrich")
+    enrich.add_argument("--verbose", action="store_true", help="show detailed enrichment debug logs")
     init = sub.add_parser("init-config")
     init.add_argument("--output", required=True)
     init.add_argument("--force", action="store_true")
@@ -176,12 +183,14 @@ def main(argv: list[str] | None = None) -> int:
         print("verify: curl -sS 'http://127.0.0.1:8765/health?deep=true'")
         return 0
     if args.command == "enrich":
+        _configure_logging(verbose=args.verbose)
         try:
             stats = enrich_vault(
                 config,
                 use_cache_only=args.use_cache_only,
                 cline_command=args.cline_command,
                 raw_file_path=args.file,
+                verbose=args.verbose,
             )
         except (RuntimeError, ValueError) as exc:
             print(f"ERROR: {exc}", file=sys.stderr)

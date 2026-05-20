@@ -112,6 +112,69 @@ class CliUsabilityTests(unittest.TestCase):
             self.assertIn("kb-api init-config --output", result.stderr)
             self.assertIn("--config <path>", result.stderr)
 
+    def test_api_enrich_reports_failed_file_and_verbose_traceback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            raw = root / "raw"
+            enriched = root / "enriched"
+            cache = root / "cache"
+            raw_note = raw / "20_Emails" / "ProjectA" / "bad.md"
+            cache_file = cache / "20_Emails" / "ProjectA" / "bad.metadata.json"
+            raw_note.parent.mkdir(parents=True)
+            cache_file.parent.mkdir(parents=True)
+            raw_note.write_text("---\ntype: \"email\"\ntags:\n  - \"email\"\n---\n# Bad\nbody", encoding="utf-8")
+            cache_file.write_text('{"conversation_id": "made-up"}', encoding="utf-8")
+            config = root / "config.yaml"
+            config.write_text(
+                f'vault_path: "{enriched}"\n'
+                f'raw_vault_path: "{raw}"\n'
+                f'enriched_vault_path: "{enriched}"\n'
+                f'enrichment_cache_path: "{cache}"\n'
+                'attachment_policy: "copy"\n'
+                f'database_path: "{root / "kb.sqlite"}"\n',
+                encoding="utf-8",
+            )
+
+            result = self.run_cmd(
+                [
+                    sys.executable,
+                    "-m",
+                    "kb_api",
+                    "enrich",
+                    "--config",
+                    str(config),
+                    "--use-cache-only",
+                    "--file",
+                    "20_Emails/ProjectA/bad.md",
+                ]
+            )
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("failed=1", result.stdout)
+            self.assertIn("ENRICH_FAILED action=skip", result.stderr)
+            self.assertIn("rel=20_Emails/ProjectA/bad.md", result.stderr)
+            self.assertIn("stage=render_enriched_markdown", result.stderr)
+            self.assertIn("error_type=ValueError", result.stderr)
+            self.assertNotIn("Traceback", result.stderr)
+
+            verbose = self.run_cmd(
+                [
+                    sys.executable,
+                    "-m",
+                    "kb_api",
+                    "enrich",
+                    "--config",
+                    str(config),
+                    "--use-cache-only",
+                    "--file",
+                    "20_Emails/ProjectA/bad.md",
+                    "--verbose",
+                ]
+            )
+            self.assertEqual(verbose.returncode, 2)
+            self.assertIn("DEBUG ENRICH_START", verbose.stderr)
+            self.assertIn("DEBUG ENRICH_CACHE_HIT", verbose.stderr)
+            self.assertIn("Traceback", verbose.stderr)
+
     def test_api_validate_reports_missing_vault(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             config = Path(tmp) / "bad.yaml"

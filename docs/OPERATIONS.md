@@ -72,6 +72,12 @@ kb-api status --config /path/to/linux-config.yaml
 kb-api enrich --config /path/to/linux-config.yaml --file "20_Emails/ProjectA/example.md"
 ```
 
+`failed`가 0이 아니면 stderr의 `ENRICH_FAILED` 로그에서 raw vault 기준 상대 경로, stage, error_type을 확인한다. traceback까지 보려면 `--verbose`를 붙인다.
+
+```bash
+kb-api enrich --config /path/to/linux-config.yaml --file "20_Emails/ProjectA/example.md" --verbose
+```
+
 또는 admin API를 사용한다.
 
 ```bash

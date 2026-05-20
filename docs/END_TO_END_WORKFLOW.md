@@ -368,6 +368,12 @@ kb-api enrich
 kb-api enrich --file "20_Emails/ProjectA/example.md"
 ```
 
+실패 원인을 좁힐 때는 verbose mode를 사용한다. 실패한 파일, 처리 stage, 예외 타입, traceback이 stderr에 출력된다.
+
+```bash
+kb-api enrich --file "20_Emails/ProjectA/example.md" --verbose
+```
+
 Cline CLI를 호출하지 않고 cache fixture만으로 테스트할 때:
 
 ```bash

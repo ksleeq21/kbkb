@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import shutil
 import subprocess
@@ -14,6 +15,8 @@ from .config import ApiConfig
 from .frontmatter import parse_markdown
 from .scanner import scan_markdown
 
+
+logger = logging.getLogger(__name__)
 
 ALLOWED_METADATA_KEYS = {"tags", "llm_tags", "llm_summary"}
 TAG_PATTERN = re.compile(r"^[0-9A-Za-z가-힣][0-9A-Za-z가-힣._-]*(/[0-9A-Za-z가-힣][0-9A-Za-z가-힣._-]*)*$")
@@ -54,6 +57,7 @@ def enrich_vault(
     use_cache_only: bool = False,
     cline_command: str = "cline",
     raw_file_path: str | Path | None = None,
+    verbose: bool = False,
 ) -> EnrichmentStats:
     raw_root = config.raw_vault_path
     enriched_root = config.enriched_vault_path or config.vault_path
@@ -70,23 +74,52 @@ def enrich_vault(
     if not raw_root.exists() or not raw_root.is_dir():
         raise ValueError(f"raw_vault_path does not exist or is not a directory: {raw_root}")
 
+    logger.debug(
+        "ENRICH_START raw_root=%s enriched_root=%s cache_root=%s single_file=%s use_cache_only=%s cline_command=%s",
+        raw_root,
+        enriched_root,
+        cache_root,
+        raw_file_path or "(all)",
+        use_cache_only,
+        cline_command,
+    )
     copied = 0 if raw_file_path is not None else _copy_non_markdown_files(raw_root, enriched_root, config.ignore_dirs)
     raw_notes = 0
     enriched_notes = 0
     failed = 0
     raw_files = [_resolve_single_raw_markdown(raw_root, raw_file_path, config.ignore_dirs)] if raw_file_path is not None else scan_markdown(raw_root, config.ignore_dirs)
+    logger.debug("ENRICH_PLAN markdown_files=%s copied_files=%s", len(raw_files), copied)
     for raw_file in raw_files:
         raw_notes += 1
         rel = raw_file.relative_to(raw_root)
+        stage = "load_metadata"
         try:
+            logger.debug("ENRICH_FILE_START rel=%s raw=%s", rel.as_posix(), raw_file)
             metadata = _load_or_create_metadata(raw_file, cache_root / rel.with_suffix(".metadata.json"), use_cache_only, cline_command)
-            enriched_text = render_enriched_markdown(raw_file.read_text(encoding="utf-8"), metadata)
+            logger.debug("ENRICH_METADATA_LOADED rel=%s keys=%s", rel.as_posix(), sorted(metadata.keys()))
+            stage = "read_raw_markdown"
+            raw_text = raw_file.read_text(encoding="utf-8")
+            logger.debug("ENRICH_RAW_READ rel=%s chars=%s", rel.as_posix(), len(raw_text))
+            stage = "render_enriched_markdown"
+            enriched_text = render_enriched_markdown(raw_text, metadata)
+            logger.debug("ENRICH_RENDERED rel=%s chars=%s", rel.as_posix(), len(enriched_text))
+            stage = "write_enriched_markdown"
             output = enriched_root / rel
             output.parent.mkdir(parents=True, exist_ok=True)
             output.write_text(enriched_text, encoding="utf-8")
             enriched_notes += 1
-        except (OSError, ValueError, RuntimeError, json.JSONDecodeError):
+            logger.debug("ENRICH_FILE_DONE rel=%s output=%s", rel.as_posix(), output)
+        except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as exc:
             failed += 1
+            logger.warning(
+                "ENRICH_FAILED action=skip rel=%s stage=%s error_type=%s error=%s",
+                rel.as_posix(),
+                stage,
+                type(exc).__name__,
+                exc,
+                exc_info=verbose,
+            )
+    logger.debug("ENRICH_DONE raw_notes=%s enriched_notes=%s copied_files=%s failed=%s", raw_notes, enriched_notes, copied, failed)
     return EnrichmentStats(raw_notes=raw_notes, enriched_notes=enriched_notes, copied_files=copied, failed=failed)
 
 
@@ -143,12 +176,16 @@ def validate_llm_metadata(data: dict[str, Any]) -> dict[str, Any]:
 
 def _load_or_create_metadata(raw_file: Path, cache_file: Path, use_cache_only: bool, cline_command: str) -> dict[str, Any]:
     if cache_file.exists():
+        logger.debug("ENRICH_CACHE_HIT raw=%s cache=%s", raw_file, cache_file)
         return json.loads(cache_file.read_text(encoding="utf-8"))
     if use_cache_only:
+        logger.debug("ENRICH_CACHE_MISSING raw=%s cache=%s use_cache_only=true", raw_file, cache_file)
         raise ValueError(f"missing cached metadata: {cache_file}")
+    logger.debug("ENRICH_CACHE_MISSING raw=%s cache=%s use_cache_only=false", raw_file, cache_file)
     metadata = _call_cline_for_metadata(raw_file.read_text(encoding="utf-8"), cline_command)
     cache_file.parent.mkdir(parents=True, exist_ok=True)
     cache_file.write_text(json.dumps(metadata, ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+    logger.debug("ENRICH_CACHE_WRITTEN raw=%s cache=%s keys=%s", raw_file, cache_file, sorted(metadata.keys()))
     return metadata
 
 
@@ -161,9 +198,12 @@ def _call_cline_for_metadata(raw_markdown: str, cline_command: str) -> dict[str,
         + raw_markdown
     )
     args = cline_command.split() + ["--json", prompt]
+    logger.debug("ENRICH_CLINE_START command=%s prompt_chars=%s", cline_command, len(prompt))
     completed = subprocess.run(args, text=True, capture_output=True, timeout=120, check=False)
     if completed.returncode != 0:
+        logger.debug("ENRICH_CLINE_FAILED returncode=%s stderr_chars=%s", completed.returncode, len(completed.stderr or ""))
         raise RuntimeError(completed.stderr.strip() or "cline command failed")
+    logger.debug("ENRICH_CLINE_DONE stdout_chars=%s stderr_chars=%s", len(completed.stdout or ""), len(completed.stderr or ""))
     return _parse_json_object(completed.stdout)
 
 
@@ -192,6 +232,7 @@ def _parse_json_object(text: str) -> dict[str, Any]:
 def _copy_non_markdown_files(raw_root: Path, enriched_root: Path, ignore_dirs: list[str]) -> int:
     ignored = set(ignore_dirs)
     copied = 0
+    logger.debug("ENRICH_COPY_NON_MD_START raw_root=%s enriched_root=%s", raw_root, enriched_root)
     for source in raw_root.rglob("*"):
         if not source.is_file():
             continue
@@ -202,6 +243,8 @@ def _copy_non_markdown_files(raw_root: Path, enriched_root: Path, ignore_dirs: l
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
         copied += 1
+        logger.debug("ENRICH_COPY_NON_MD rel=%s target=%s", rel.as_posix(), target)
+    logger.debug("ENRICH_COPY_NON_MD_DONE copied=%s", copied)
     return copied
 
 
