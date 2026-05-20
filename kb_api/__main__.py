@@ -4,12 +4,30 @@ import argparse
 import sys
 from pathlib import Path
 
-from .config import load_config
+from .config import ApiConfig, load_config, parse_config
 from .diagnostics import doctor_lines, smoke_test, status_lines, validate_config
 from .enrichment import enrich_vault
 from .indexer import reindex
 from .server import serve
-from .templates import LINUX_CONFIG_TEMPLATE
+from .templates import render_linux_config_template
+from kb_win_sync.simple_yaml import load_simple_yaml
+
+
+def _ensure_api_directories(config: ApiConfig) -> list[Path]:
+    directories = {
+        Path(config.vault_path),
+        Path(config.database_path).parent,
+    }
+    if config.raw_vault_path is not None:
+        directories.add(Path(config.raw_vault_path))
+    if config.enriched_vault_path is not None:
+        directories.add(Path(config.enriched_vault_path))
+    if config.enrichment_cache_path is not None:
+        directories.add(Path(config.enrichment_cache_path))
+    ensured = sorted(directories)
+    for directory in ensured:
+        directory.mkdir(parents=True, exist_ok=True)
+    return ensured
 
 
 def _write_config_template(output_arg: str, *, force: bool) -> int:
@@ -19,10 +37,16 @@ def _write_config_template(output_arg: str, *, force: bool) -> int:
         print("Use --force to overwrite.", file=sys.stderr)
         return 2
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(LINUX_CONFIG_TEMPLATE, encoding="utf-8")
+    config_text = render_linux_config_template()
+    output.write_text(config_text, encoding="utf-8")
+    config = parse_config(load_simple_yaml(config_text))
+    ensured = _ensure_api_directories(config)
     print(f"created config: {output}")
+    print("ensured directories:")
+    for directory in ensured:
+        print(f"  {directory}")
     print("next:")
-    print(f"  1. edit {output}")
+    print(f"  1. edit {output} if you need different vault paths")
     print(f"  2. kb-api doctor --config {output}")
     print(f"  3. kb-api reindex --config {output}")
     return 0

@@ -141,9 +141,10 @@ kb-api smoke-test --config examples/linux-config.fixture.yaml
 repo 밖에 local config를 만든다.
 
 ```bash
-mkdir -p ~/.config/kb-api ~/.local/share/kb-api
 kb-api init-config --output ~/.config/kb-api/config.yaml
 ```
+
+`init-config`는 현재 user의 home directory 기준으로 기본 vault, raw vault, database parent, enrichment cache directory를 함께 생성한다.
 
 수정한다.
 

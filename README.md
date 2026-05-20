@@ -65,9 +65,10 @@ kb-api --help
 Linux API config를 repository 밖에 만든다.
 
 ```bash
-mkdir -p ~/.config/kb-api ~/.local/share/kb-api
 kb-api init-config --output ~/.config/kb-api/config.yaml
 ```
+
+`init-config`는 현재 Linux user의 home directory 아래에 기본 vault, database parent, enrichment cache directory를 함께 생성한다.
 
 API를 실행하는 shell에 local-only token을 설정한다.
 

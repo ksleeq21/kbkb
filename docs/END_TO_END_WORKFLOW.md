@@ -69,12 +69,13 @@ python3 -m pip install -e ".[api]"
 
 ## 3. Linux: API Config와 Token 생성
 
-로컬 config와 DB directory를 만든다.
+로컬 config를 만든다.
 
 ```bash
-mkdir -p ~/.config/kb-api ~/.local/share/kb-api
 kb-api init-config --output ~/.config/kb-api/config.yaml
 ```
+
+`init-config`는 현재 user의 home directory 기준으로 기본 vault, raw vault, database parent, enrichment cache directory를 함께 생성한다.
 
 `~/.config/kb-api/config.yaml`에서 검색 대상 vault와 DB path를 설정한다. Cline enrichment를 사용하는 운영에서는 `vault_path`가 raw sync directory가 아니라 enriched Markdown directory를 가리켜야 한다.
 

@@ -45,10 +45,15 @@ class CliUsabilityTests(unittest.TestCase):
     def test_api_init_config_creates_file_and_refuses_overwrite(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp) / "config.yaml"
-            result = self.run_cmd([sys.executable, "-m", "kb_api", "init-config", "--output", str(output)])
+            result = self.run_cmd([sys.executable, "-m", "kb_api", "init-config", "--output", str(output)], {"HOME": tmp})
             self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
             self.assertIn("kb-api doctor", result.stdout)
-            self.assertIn("vault_path:", output.read_text(encoding="utf-8"))
+            self.assertIn("ensured directories:", result.stdout)
+            text = output.read_text(encoding="utf-8")
+            self.assertIn(f'vault_path: "{tmp}/kb/KnowledgeVault-Enriched"', text)
+            self.assertTrue((Path(tmp) / "kb" / "KnowledgeVault-Enriched").is_dir())
+            self.assertTrue((Path(tmp) / "kb" / "KnowledgeVault-Raw").is_dir())
+            self.assertTrue((Path(tmp) / ".local" / "share" / "kb-api" / "enrichment-cache").is_dir())
             second = self.run_cmd([sys.executable, "-m", "kb_api", "init-config", "--output", str(output)])
             self.assertEqual(second.returncode, 2)
             self.assertIn("already exists", second.stderr)
