@@ -82,7 +82,7 @@ Linux에서 강한 token을 생성하고 systemd environment file에 저장하�
 config를 검증한다.
 
 ```bash
-kb-api doctor --config ~/.config/kb-api/config.yaml
+kb-api doctor
 ```
 
 기본 standard-library server 대신 FastAPI/uvicorn으로 실행하려면 optional API dependency를 설치한다.
@@ -156,22 +156,22 @@ Token 생성, 확인, service environment file 설정은 [docs/LINUX_TOKEN_SETUP
 
 ```bash
 kb-api init-config --output ~/.config/kb-api/config.yaml
-kb-api doctor --config ~/.config/kb-api/config.yaml
-kb-api enrich --config ~/.config/kb-api/config.yaml
-kb-api reindex --config ~/.config/kb-api/config.yaml
-kb-api status --config ~/.config/kb-api/config.yaml
+kb-api doctor
+kb-api enrich
+kb-api reindex
+kb-api status
 ```
 
 대형 vault에서 일부 파일만 먼저 검증하려면 raw vault 기준 상대 경로를 지정한다. 결과는 enriched vault의 같은 상대 경로에 생성된다.
 
 ```bash
-kb-api enrich --config ~/.config/kb-api/config.yaml --file "20_Emails/ProjectA/example.md"
+kb-api enrich --file "20_Emails/ProjectA/example.md"
 ```
 
 4. API를 시작한다.
 
 ```bash
-kb-api serve --config ~/.config/kb-api/config.yaml
+kb-api serve
 ```
 
 Endpoint:

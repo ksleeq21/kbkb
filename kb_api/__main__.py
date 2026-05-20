@@ -17,6 +17,11 @@ from kb_win_sync.simple_yaml import load_simple_yaml
 
 TOKEN_RC_BEGIN = "# >>> kb-api local tokens >>>"
 TOKEN_RC_END = "# <<< kb-api local tokens <<<"
+DEFAULT_CONFIG_PATH = Path("~/.config/kb-api/config.yaml")
+
+
+def _default_config_path() -> Path:
+    return DEFAULT_CONFIG_PATH.expanduser()
 
 
 def _ensure_api_directories(config: ApiConfig) -> list[Path]:
@@ -90,8 +95,12 @@ def _write_config_template(output_arg: str, *, force: bool) -> int:
     print("next:")
     print(f"  1. restart your shell or run: source {rc_path}")
     print(f"  2. edit {output} if you need different vault paths")
-    print(f"  3. kb-api doctor --config {output}")
-    print(f"  4. kb-api reindex --config {output}")
+    if output.expanduser() == _default_config_path():
+        print("  3. kb-api doctor")
+        print("  4. kb-api reindex")
+    else:
+        print(f"  3. kb-api doctor --config {output}")
+        print(f"  4. kb-api reindex --config {output}")
     return 0
 
 
@@ -107,14 +116,28 @@ def _print_check_result(result) -> int:
     return 2
 
 
+def _load_config_or_report(config_arg: str | None) -> tuple[ApiConfig | None, Path, int]:
+    path = Path(config_arg).expanduser() if config_arg else _default_config_path()
+    if not path.exists():
+        print(f"ERROR: config not found: {path}", file=sys.stderr)
+        print(f"Run: kb-api init-config --output {path}", file=sys.stderr)
+        print("Or pass: --config <path>", file=sys.stderr)
+        return None, path, 2
+    try:
+        return load_config(path), path, 0
+    except (OSError, ValueError) as exc:
+        print(f"ERROR: failed to load config: {path} ({exc})", file=sys.stderr)
+        return None, path, 2
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m kb_api")
     sub = parser.add_subparsers(dest="command", required=True)
     for name in ["reindex", "serve", "validate-config", "status", "smoke-test", "doctor"]:
         cmd = sub.add_parser(name)
-        cmd.add_argument("--config", required=True)
+        cmd.add_argument("--config")
     enrich = sub.add_parser("enrich")
-    enrich.add_argument("--config", required=True)
+    enrich.add_argument("--config")
     enrich.add_argument("--use-cache-only", action="store_true")
     enrich.add_argument("--cline-command", default="cline")
     enrich.add_argument("--file", help="raw_vault_path-relative Markdown file to enrich")
@@ -124,7 +147,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "init-config":
         return _write_config_template(args.output, force=args.force)
-    config = load_config(args.config)
+    config, config_path, code = _load_config_or_report(args.config)
+    if config is None:
+        return code
     if args.command == "validate-config":
         return _print_check_result(validate_config(config))
     if args.command == "status":
@@ -147,7 +172,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "reindex":
         stats = reindex(config)
         print(f"indexed notes={stats.notes} chunks={stats.chunks}")
-        print(f"next: kb-api serve --config {args.config}")
+        print(f"next: kb-api serve --config {config_path}")
         print("verify: curl -sS 'http://127.0.0.1:8765/health?deep=true'")
         return 0
     if args.command == "enrich":

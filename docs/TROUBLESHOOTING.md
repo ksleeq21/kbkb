@@ -12,7 +12,7 @@ kb-win-sync validate-config --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 Linux:
 
 ```bash
-kb-api status --config ~/.config/kb-api/config.yaml
+kb-api status
 kb-api validate-config --config ~/.config/kb-api/config.yaml
 ```
 

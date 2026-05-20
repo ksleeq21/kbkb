@@ -82,6 +82,36 @@ class CliUsabilityTests(unittest.TestCase):
             rc_text = rc_path.read_text(encoding="utf-8")
             self.assertEqual(rc_text.count("# >>> kb-api local tokens >>>"), 1)
 
+    def test_api_commands_use_default_config_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            config = Path(tmp) / ".config" / "kb-api" / "config.yaml"
+            init = self.run_cmd(
+                [sys.executable, "-m", "kb_api", "init-config", "--output", str(config)],
+                {"HOME": tmp, "SHELL": "/bin/bash", "KB_API_TOKEN": "test-token", "KB_API_ADMIN_TOKEN": "admin-token"},
+            )
+            self.assertEqual(init.returncode, 0, init.stderr + init.stdout)
+
+            env = {"HOME": tmp, "KB_API_TOKEN": "test-token", "KB_API_ADMIN_TOKEN": "admin-token"}
+            doctor = self.run_cmd([sys.executable, "-m", "kb_api", "doctor"], env)
+            self.assertEqual(doctor.returncode, 0, doctor.stderr + doctor.stdout)
+            self.assertIn("doctor: kb_api", doctor.stdout)
+
+            enrich = self.run_cmd([sys.executable, "-m", "kb_api", "enrich", "--use-cache-only"], env)
+            self.assertEqual(enrich.returncode, 0, enrich.stderr + enrich.stdout)
+            self.assertIn("enrich raw_notes=0", enrich.stdout)
+
+            reindex = self.run_cmd([sys.executable, "-m", "kb_api", "reindex"], env)
+            self.assertEqual(reindex.returncode, 0, reindex.stderr + reindex.stdout)
+            self.assertIn("indexed notes=0", reindex.stdout)
+
+    def test_api_missing_default_config_gives_actionable_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_cmd([sys.executable, "-m", "kb_api", "doctor"], {"HOME": tmp})
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("config not found", result.stderr)
+            self.assertIn("kb-api init-config --output", result.stderr)
+            self.assertIn("--config <path>", result.stderr)
+
     def test_api_validate_reports_missing_vault(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             config = Path(tmp) / "bad.yaml"

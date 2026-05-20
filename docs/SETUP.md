@@ -156,22 +156,22 @@ vim ~/.config/kb-api/config.yaml
 
 ```bash
 kb-api validate-config --config ~/.config/kb-api/config.yaml
-kb-api doctor --config ~/.config/kb-api/config.yaml
+kb-api doctor
 ```
 
 Windows가 raw Markdown을 Linux로 sync한 뒤 enrich하고 index한다.
 
 ```bash
-kb-api enrich --config ~/.config/kb-api/config.yaml
-kb-api reindex --config ~/.config/kb-api/config.yaml
-kb-api status --config ~/.config/kb-api/config.yaml
+kb-api enrich
+kb-api reindex
+kb-api status
 ```
 
 수동으로 실행한다.
 
 ```bash
 source ~/.zshrc  # bash를 사용하면 source ~/.bashrc
-kb-api serve --config ~/.config/kb-api/config.yaml
+kb-api serve
 ```
 
 다른 shell에서 검증한다.
@@ -306,7 +306,7 @@ SSH, remote path, permission이 확인될 때까지 `sync.enabled: false`를 유
 ```bash
 python -m unittest discover -s tests -v
 kb-api validate-config --config ~/.config/kb-api/config.yaml
-kb-api reindex --config ~/.config/kb-api/config.yaml
+kb-api reindex
 systemctl --user restart kb-api.service
 ```
 
