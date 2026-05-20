@@ -15,6 +15,7 @@ from .render import message_key, render_markdown, sanitize_filename, target_path
 from .state import StateStore
 from .sync import SftpSyncer
 from .templates import render_windows_config_template
+from .text import safe_text
 
 
 def _ensure_windows_directories(config) -> list[Path]:
@@ -55,12 +56,7 @@ def _configure_logging(log_path: Path, *, verbose: bool) -> None:
 
 
 def _safe_text(value: object, *, limit: int = 500) -> str:
-    text = str(value)
-    text = text.encode("utf-8", errors="backslashreplace").decode("utf-8", errors="replace")
-    text = text.replace("\r", "\\r").replace("\n", "\\n")
-    if len(text) > limit:
-        return text[:limit] + "...(truncated)"
-    return text
+    return safe_text(value, limit=limit)
 
 
 def _failed_email_context(folder_name: str, folder_index: int, total_label: str, email: object | None, key: str = "", target: str = "") -> str:
@@ -231,7 +227,7 @@ def save_email_artifacts(email: EmailMessage, vault_path: Path, *, save_msg: boo
         for attachment in email.attachments:
             rel = artifact_dir_rel / _unique_attachment_name(attachment.filename, used_names)
             if attachment.saver is None:
-                logging.warning("Attachment has no save hook message_key=%s filename=%s", key, attachment.filename)
+                logging.warning("Attachment has no save hook message_key=%s filename=%s", key, _safe_text(attachment.filename))
                 saved_attachments.append(attachment)
                 continue
             try:
@@ -241,7 +237,7 @@ def save_email_artifacts(email: EmailMessage, vault_path: Path, *, save_msg: boo
                 attachment_count += 1
                 logging.info("Saved attachment message_key=%s path=%s", key, rel.as_posix())
             except Exception as exc:
-                logging.error("Attachment save failed message_key=%s filename=%s error=%s", key, attachment.filename, exc)
+                logging.error("Attachment save failed message_key=%s filename=%s error=%s", key, _safe_text(attachment.filename), _safe_text(exc))
                 saved_attachments.append(attachment)
     else:
         saved_attachments = list(email.attachments)

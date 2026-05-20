@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
 
 from .config import SyncConfig
+from .text import safe_text
 
 
 @dataclass(frozen=True)
@@ -80,12 +82,23 @@ class SftpSyncer:
             for local in plan.files:
                 rel = local.relative_to(vault_path).as_posix()
                 remote = f"{self.config.remote_path.rstrip('/')}/{rel}"
-                _mkdirs(sftp, str(Path(remote).parent).replace("\\", "/"))
-                sftp.put(str(local), remote)
-                uploaded += 1
+                try:
+                    _mkdirs(sftp, str(Path(remote).parent).replace("\\", "/"))
+                    sftp.put(str(local), remote)
+                    uploaded += 1
+                    previous_manifest[rel] = next_manifest[rel]
+                except Exception as exc:
+                    logging.error(
+                        "SKIPPED_SYNC_UPLOAD action=skip rel=%s local=%s remote=%s error_type=%s error=%s",
+                        safe_text(rel, limit=500),
+                        safe_text(local, limit=500),
+                        safe_text(remote, limit=500),
+                        type(exc).__name__,
+                        safe_text(exc, limit=500),
+                    )
         finally:
             transport.close()
-        save_manifest(manifest_path, next_manifest)
+        save_manifest(manifest_path, {rel: digest for rel, digest in next_manifest.items() if previous_manifest.get(rel) == digest})
         return uploaded
 
 

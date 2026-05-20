@@ -1,18 +1,21 @@
 from __future__ import annotations
 
 import json
+import sys
 import tempfile
+import types
 import unittest
 from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
+from unittest.mock import patch
 
 from kb_win_sync.__main__ import _append_folder_config_snippets, _configure_logging, parse_mailbox_selection, run_import, save_email_artifacts
 from kb_win_sync.config import OutlookFolderConfig, SyncConfig, WinConfig, load_config, parse_config
 from kb_win_sync.email_model import EmailAttachment, EmailMessage
 from kb_win_sync.render import message_key, render_markdown, sanitize_filename, target_path
 from kb_win_sync.state import ImportState, StateStore
-from kb_win_sync.sync import build_incremental_sync_plan, load_manifest, save_manifest
+from kb_win_sync.sync import SftpSyncer, build_incremental_sync_plan, load_manifest, save_manifest
 
 
 class WinSyncTests(unittest.TestCase):
@@ -298,7 +301,7 @@ sync:
             self.assertIn("Import summary selected_folders=1", log_text)
             self.assertIn("Saved import state", log_text)
 
-    def test_run_import_skips_email_with_unencodable_surrogate_and_continues(self) -> None:
+    def test_run_import_escapes_unencodable_surrogate_and_continues(self) -> None:
         class FakeClient:
             def count_folder_items(self, folder: OutlookFolderConfig) -> int:
                 return 2
@@ -347,13 +350,38 @@ sync:
                     config_path=str(root / "config.yaml"),
                 )
             self.assertEqual(summary["scanned"], 2)
-            self.assertEqual(summary["failed"], 1)
-            self.assertEqual(summary["imported"], 1)
+            self.assertEqual(summary["failed"], 0)
+            self.assertEqual(summary["imported"], 2)
             log_text = config.log_path.read_text(encoding="utf-8")
-            self.assertIn("FAILED_EMAIL action=skip", log_text)
-            self.assertIn("error_type=", log_text)
-            self.assertIn("message_index=1/2", log_text)
-            self.assertIn("Good message", next((root / "vault").rglob("*.md")).read_text(encoding="utf-8"))
+            self.assertNotIn("FAILED_EMAIL action=skip", log_text)
+            imported_text = "\n".join(path.read_text(encoding="utf-8") for path in (root / "vault").rglob("*.md"))
+            self.assertIn("Bad surrogate \\udc8c", imported_text)
+            self.assertIn("Good message", imported_text)
+
+    def test_rendering_escapes_surrogates_before_encoding(self) -> None:
+        email = EmailMessage(
+            subject="Broken \udfa0 subject",
+            sender="Kim \udc8c <kim@example.test>",
+            to=["Hong \udfa1 <hong@example.test>"],
+            cc=["Cc \udfa2 <cc@example.test>"],
+            received="2026-05-19T09:15:00+09:00",
+            body="body \udfa3",
+            folder="Inbox \udfa4",
+            conversation_id="conv \udfa5",
+            message_id="",
+            tags=["tag/\udfa6"],
+            attachments=[EmailAttachment("report\udfa7.txt", "90_Attachments/email/key/report\udfa7.txt")],
+            original_msg="90_Attachments/email/key/original\udfa8.msg",
+        )
+        self.assertEqual(sanitize_filename("report\udfa7?.txt"), "report_udfa7_.txt")
+        key = message_key(email)
+        self.assertEqual(len(key), 12)
+        path = target_path(email, "20_Emails/ProjectA")
+        self.assertIn("Broken _udfa0 subject", path)
+        md = render_markdown(email, "20_Emails/ProjectA", imported_at="2026-05-19T00:00:00+00:00")
+        md.encode("utf-8")
+        self.assertIn("Broken \\udfa0 subject", md)
+        self.assertIn("body \\udfa3", md)
 
     def test_incremental_sync_manifest_tracks_changed_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -370,6 +398,65 @@ sync:
             (root / "a.md").write_text("two", encoding="utf-8")
             plan, manifest = build_incremental_sync_plan(root, manifest)
             self.assertEqual([path.name for path in plan.files], ["a.md"])
+
+    def test_sftp_sync_skips_unencodable_upload_error_and_continues(self) -> None:
+        class FakeTransport:
+            def __init__(self, address):
+                self.address = address
+
+            def connect(self, username, pkey):
+                self.username = username
+                self.pkey = pkey
+
+            def close(self):
+                self.closed = True
+
+        class FakeSftp:
+            uploaded: list[str] = []
+
+            def stat(self, remote):
+                return True
+
+            def put(self, local, remote):
+                if local.endswith("bad.md"):
+                    raise UnicodeEncodeError("utf-8", "\udfa0", 0, 1, "surrogates not allowed")
+                self.uploaded.append(remote)
+
+        fake_paramiko = types.SimpleNamespace(
+            Transport=FakeTransport,
+            SFTPClient=types.SimpleNamespace(from_transport=lambda transport: FakeSftp()),
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            vault = root / "vault"
+            vault.mkdir()
+            good = vault / "good.md"
+            bad = vault / "bad.md"
+            good.write_text("good", encoding="utf-8")
+            bad.write_text("bad", encoding="utf-8")
+            log_path = root / "sync.log"
+            _configure_logging(log_path, verbose=False)
+
+            with patch.dict(sys.modules, {"paramiko": fake_paramiko}):
+                uploaded = SftpSyncer(
+                    SyncConfig(
+                        enabled=True,
+                        host="example.test",
+                        username="kim",
+                        remote_path="/remote",
+                    )
+                ).sync(vault)
+
+            self.assertEqual(uploaded, 1)
+            self.assertEqual(FakeSftp.uploaded, ["/remote/good.md"])
+            manifest = load_manifest(vault / ".kb-sync-manifest.json")
+            self.assertIn("good.md", manifest)
+            self.assertNotIn("bad.md", manifest)
+            log_text = log_path.read_text(encoding="utf-8")
+            self.assertIn("SKIPPED_SYNC_UPLOAD action=skip", log_text)
+            self.assertIn("error_type=UnicodeEncodeError", log_text)
+            self.assertIn("bad.md", log_text)
 
 
 if __name__ == "__main__":

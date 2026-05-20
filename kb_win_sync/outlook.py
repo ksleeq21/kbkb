@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from .config import OutlookFolderConfig
 from .email_model import EmailAttachment, EmailMessage
+from .text import normalize_text, safe_text
 
 
 class OutlookUnavailable(RuntimeError):
@@ -36,26 +37,26 @@ class OutlookClient:
                 if getattr(item, "Class", None) != 43:  # olMail
                     continue
                 yield EmailMessage(
-                    subject=str(getattr(item, "Subject", "") or ""),
-                    sender=str(getattr(item, "SenderEmailAddress", "") or getattr(item, "SenderName", "") or ""),
-                    to=[part.strip() for part in str(getattr(item, "To", "") or "").split(";") if part.strip()],
-                    cc=[part.strip() for part in str(getattr(item, "CC", "") or "").split(";") if part.strip()],
-                    received=str(getattr(item, "ReceivedTime", "") or ""),
-                    body=str(getattr(item, "Body", "") or ""),
-                    folder=folder.outlook_path,
-                    conversation_id=str(getattr(item, "ConversationID", "") or ""),
+                    subject=normalize_text(getattr(item, "Subject", "") or ""),
+                    sender=normalize_text(getattr(item, "SenderEmailAddress", "") or getattr(item, "SenderName", "") or ""),
+                    to=[normalize_text(part.strip()) for part in str(getattr(item, "To", "") or "").split(";") if part.strip()],
+                    cc=[normalize_text(part.strip()) for part in str(getattr(item, "CC", "") or "").split(";") if part.strip()],
+                    received=normalize_text(getattr(item, "ReceivedTime", "") or ""),
+                    body=normalize_text(getattr(item, "Body", "") or ""),
+                    folder=normalize_text(folder.outlook_path),
+                    conversation_id=normalize_text(getattr(item, "ConversationID", "") or ""),
                     message_id=_property(item, "http://schemas.microsoft.com/mapi/proptag/0x1035001E"),
-                    tags=folder.tags,
-                    attachments=[EmailAttachment(str(att.FileName), saver=_attachment_saver(att)) for att in getattr(item, "Attachments", [])],
+                    tags=[normalize_text(tag) for tag in folder.tags],
+                    attachments=[EmailAttachment(normalize_text(att.FileName), saver=_attachment_saver(att)) for att in getattr(item, "Attachments", [])],
                     original_msg_saver=_message_saver(item),
                 )
             except Exception as exc:
                 logging.exception(
                     "FAILED_EMAIL action=skip stage=outlook_read folder=%s message_index=%s error_type=%s error=%s",
-                    _safe_log_text(folder.name),
+                    safe_text(folder.name),
                     index,
                     type(exc).__name__,
-                    _safe_log_text(exc),
+                    safe_text(exc),
                 )
                 continue
 
@@ -76,7 +77,7 @@ class OutlookClient:
                 OutlookFolderInfo(
                     index=len(folders) + 1,
                     path=path,
-                    name=str(getattr(com_folder, "Name", "") or path.rsplit("\\", 1)[-1]),
+                    name=normalize_text(getattr(com_folder, "Name", "") or path.rsplit("\\", 1)[-1]),
                     depth=depth,
                 )
             )
@@ -85,13 +86,13 @@ class OutlookClient:
             except Exception:
                 return
             for child in children:
-                name = str(getattr(child, "Name", "") or "")
+                name = normalize_text(getattr(child, "Name", "") or "")
                 if not name:
                     continue
                 walk(child, f"{path}\\{name}", depth + 1)
 
         for root in self._outlook.Folders:
-            name = str(getattr(root, "Name", "") or "")
+            name = normalize_text(getattr(root, "Name", "") or "")
             if not name:
                 continue
             walk(root, f"\\{name}", 1)
@@ -109,13 +110,9 @@ class OutlookClient:
 
 def _property(item, uri: str) -> str:
     try:
-        return str(item.PropertyAccessor.GetProperty(uri) or "")
+        return normalize_text(item.PropertyAccessor.GetProperty(uri) or "")
     except Exception:
         return ""
-
-
-def _safe_log_text(value: object) -> str:
-    return str(value).encode("utf-8", errors="backslashreplace").decode("utf-8", errors="replace")
 
 
 def _attachment_saver(attachment):
