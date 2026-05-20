@@ -117,7 +117,7 @@ editable install을 사용할 수 없으면 legacy module command인 `python3 -m
 3. Linux: enriched vault path를 만들거나 확인한 뒤 reindex 후 API를 시작한다.
 4. Linux: `/health`, `/health?deep=true`, `/search`를 검증한다.
 5. Windows: Outlook import config를 만든다.
-6. Windows: `list-mailboxes`를 실행하고 mailbox index를 선택한 뒤 생성된 snippet을 config에 복사한다.
+6. Windows: `list-mailboxes --config <path>`를 실행하고 mailbox index를 선택해 config에 자동 추가한다.
 7. Windows: config를 검증하고 `--dry-run`을 실행한다.
 8. Windows: import를 수동으로 한 번 실행한다.
 9. Windows: 수동 import가 동작한 뒤에만 Task Scheduler를 활성화한다.
@@ -226,17 +226,17 @@ repo 밖에 local config를 만든다.
 ```powershell
 New-Item -ItemType Directory -Force "$env:USERPROFILE\kb-win-sync"
 kb-win-sync init-config --output "$env:USERPROFILE\kb-win-sync\config.yaml"
-kb-win-sync list-mailboxes
+kb-win-sync list-mailboxes --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 notepad "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
 
-`list-mailboxes`는 Outlook mailbox와 folder를 numeric index와 함께 출력한 뒤 다음을 묻는다.
+`list-mailboxes --config <path>`는 Outlook mailbox와 folder를 numeric index와 함께 출력한 뒤 다음을 묻고, 선택한 folder를 config의 `outlook.folders` 아래에 자동으로 추가한다.
 
 ```text
 동기화 시키고 싶은 메일함 Index(예: 1,2,3,5):
 ```
 
-생성된 `outlook.folders` snippet을 local config에 복사하고 필요에 따라 `name`, `target_folder`, `tags`를 조정한다.
+자동 추가된 `outlook.folders` 항목을 local config에서 확인하고 필요에 따라 `name`, `target_folder`, `tags`를 조정한다.
 
 검증하고 미리 확인한다.
 

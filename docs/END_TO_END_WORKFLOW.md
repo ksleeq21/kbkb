@@ -134,7 +134,7 @@ kb-win-sync init-config --output "$env:USERPROFILE\kb-win-sync\config.yaml"
 Outlook 메일함과 폴더 목록을 번호로 확인한다.
 
 ```powershell
-kb-win-sync list-mailboxes
+kb-win-sync list-mailboxes --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
 
 명령은 classic Outlook을 열어 폴더 트리를 읽고 다음처럼 출력한다.
@@ -154,7 +154,7 @@ kb-win-sync list-mailboxes
 4,5
 ```
 
-명령은 `outlook.folders` 아래에 붙일 수 있는 YAML snippet을 출력한다.
+명령은 선택한 folder의 YAML snippet을 출력하고 `--config`가 지정된 경우 `outlook.folders` 아래에 자동으로 추가한다.
 
 ```yaml
     - name: "projecta"
@@ -167,7 +167,7 @@ kb-win-sync list-mailboxes
       save_attachments: true
 ```
 
-출력된 snippet을 `%USERPROFILE%\kb-win-sync\config.yaml`에 붙이고, `name`, `target_folder`, `tags`를 프로젝트 규칙에 맞게 다듬는다.
+자동으로 추가된 항목을 `%USERPROFILE%\kb-win-sync\config.yaml`에서 확인하고, `name`, `target_folder`, `tags`를 프로젝트 규칙에 맞게 다듬는다.
 
 권장 운영 방식:
 

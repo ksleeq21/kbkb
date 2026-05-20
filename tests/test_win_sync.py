@@ -7,7 +7,7 @@ from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
 
-from kb_win_sync.__main__ import parse_mailbox_selection, run_import, save_email_artifacts
+from kb_win_sync.__main__ import _append_folder_config_snippets, parse_mailbox_selection, run_import, save_email_artifacts
 from kb_win_sync.config import OutlookFolderConfig, SyncConfig, WinConfig, load_config, parse_config
 from kb_win_sync.email_model import EmailAttachment, EmailMessage
 from kb_win_sync.render import message_key, render_markdown, sanitize_filename, target_path
@@ -41,6 +41,43 @@ class WinSyncTests(unittest.TestCase):
             parse_mailbox_selection("1,x", 5)
         with self.assertRaises(ValueError):
             parse_mailbox_selection("6", 5)
+
+    def test_list_mailboxes_can_update_config(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            config_path = Path(tmp) / "config.yaml"
+            config_path.write_text(
+                """vault_path: "D:/KnowledgeVault"
+state_path: "state.json"
+log_path: "log.txt"
+outlook:
+  folders:
+    - name: "project-a"
+      outlook_path: "\\\\Mailbox - User Name\\\\Inbox\\\\_KB\\\\ProjectA"
+      target_folder: "20_Emails/ProjectA"
+      tags:
+        - "email"
+        - "project/project-a"
+      save_msg: true
+      save_attachments: true
+sync:
+  enabled: false
+""",
+                encoding="utf-8",
+            )
+            output = StringIO()
+            with redirect_stdout(output):
+                code = _append_folder_config_snippets(str(config_path), ["\\Mailbox\\Inbox\\_KB\\Real Project"])
+            self.assertEqual(code, 0)
+            updated = config_path.read_text(encoding="utf-8")
+            self.assertIn('outlook_path: "\\\\Mailbox\\\\Inbox\\\\_KB\\\\Real Project"', updated)
+            self.assertIn('target_folder: "20_Emails/real-project"', updated)
+            self.assertNotIn("Mailbox - User Name", updated)
+            self.assertIn("updated config:", output.getvalue())
+
+            with redirect_stdout(StringIO()):
+                code = _append_folder_config_snippets(str(config_path), ["\\Mailbox\\Inbox\\_KB\\Real Project"])
+            self.assertEqual(code, 0)
+            self.assertEqual(config_path.read_text(encoding="utf-8").count("Real Project"), 1)
 
     def test_state_read_write_and_corruption(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

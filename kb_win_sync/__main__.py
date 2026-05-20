@@ -31,7 +31,7 @@ def _write_config_template(output_arg: str | None, *, force: bool) -> int:
     print(f"created config: {output}")
     print("next:")
     print(f"  1. edit {output}")
-    print("  2. kb-win-sync list-mailboxes")
+    print(f"  2. kb-win-sync list-mailboxes --config {output}")
     print(f"  3. kb-win-sync doctor --config {output}")
     return 0
 
@@ -71,6 +71,23 @@ def _slug_from_path(path: str) -> str:
     return slug or "mailbox"
 
 
+def _folder_config_snippet(path: str) -> str:
+    slug = _slug_from_path(path)
+    escaped_path = path.replace("\\", "\\\\")
+    return "\n".join(
+        [
+            f'    - name: "{slug}"',
+            f'      outlook_path: "{escaped_path}"',
+            f'      target_folder: "20_Emails/{slug}"',
+            "      tags:",
+            '        - "email"',
+            f'        - "mailbox/{slug}"',
+            "      save_msg: true",
+            "      save_attachments: true",
+        ]
+    )
+
+
 def _print_folder_config_snippets(paths: list[str]) -> None:
     if not paths:
         print("No mailbox selected.")
@@ -78,15 +95,65 @@ def _print_folder_config_snippets(paths: list[str]) -> None:
     print("")
     print("Add entries like these under outlook.folders:")
     for path in paths:
-        slug = _slug_from_path(path)
-        print("    - name: " + f'"{slug}"')
-        print("      outlook_path: " + f'"{path.replace(chr(92), chr(92) + chr(92))}"')
-        print("      target_folder: " + f'"20_Emails/{slug}"')
-        print("      tags:")
-        print('        - "email"')
-        print(f'        - "mailbox/{slug}"')
-        print("      save_msg: true")
-        print("      save_attachments: true")
+        print(_folder_config_snippet(path))
+
+
+def _remove_default_placeholder_folder(config_text: str) -> str:
+    lines = config_text.splitlines()
+    index = next((i for i, line in enumerate(lines) if "Mailbox - User Name" in line and "outlook_path:" in line), None)
+    if index is None:
+        return config_text
+    start = index
+    while start > 0 and not lines[start].startswith("    - "):
+        start -= 1
+    end = index + 1
+    while end < len(lines):
+        line = lines[end]
+        if line.startswith("    - ") or (line and not line.startswith(" ")):
+            break
+        end += 1
+    del lines[start:end]
+    return "\n".join(lines) + ("\n" if config_text.endswith("\n") else "")
+
+
+def _append_folder_config_snippets(config_path: str, paths: list[str]) -> int:
+    path = Path(config_path)
+    if not path.exists():
+        print(f"ERROR: config not found: {path}", file=sys.stderr)
+        return 2
+    config_text = _remove_default_placeholder_folder(path.read_text(encoding="utf-8"))
+    snippets: list[str] = []
+    for selected_path in paths:
+        escaped_path = selected_path.replace("\\", "\\\\")
+        if f'outlook_path: "{escaped_path}"' in config_text:
+            print(f"skip existing outlook_path: {selected_path}")
+            continue
+        snippets.append(_folder_config_snippet(selected_path))
+    if not snippets:
+        print(f"config unchanged: {path}")
+        return 0
+
+    lines = config_text.splitlines()
+    folders_index = next((i for i, line in enumerate(lines) if line.strip() == "folders:"), None)
+    if folders_index is None:
+        print(f"ERROR: config has no outlook.folders section: {path}", file=sys.stderr)
+        return 2
+
+    insert_at = folders_index + 1
+    while insert_at < len(lines):
+        line = lines[insert_at]
+        if line and not line.startswith(" "):
+            break
+        insert_at += 1
+    insert_lines = "\n".join(snippets).splitlines()
+    if insert_at > 0 and insert_at <= len(lines) and lines[insert_at - 1].strip():
+        insert_lines = ["", *insert_lines]
+    lines[insert_at:insert_at] = insert_lines
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"updated config: {path}")
+    print(f"added outlook.folders entries={len(snippets)}")
+    print(f"next: kb-win-sync doctor --config {path}")
+    return 0
 
 
 def save_email_artifacts(email: EmailMessage, vault_path: Path, *, save_msg: bool, save_attachments: bool) -> tuple[EmailMessage, int, int]:
@@ -249,6 +316,8 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         selected_paths = [folders[index - 1].path for index in selected]
         _print_folder_config_snippets(selected_paths)
+        if args.config:
+            return _append_folder_config_snippets(args.config, selected_paths)
         return 0
     if not args.config:
         print(f"ERROR: --config is required for {args.command}", file=sys.stderr)

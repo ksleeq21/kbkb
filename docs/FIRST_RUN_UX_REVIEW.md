@@ -243,7 +243,7 @@ curl -sS 'http://127.0.0.1:8765/search?q=SSO' -H "Authorization: Bearer $KB_API_
 
 ### P2: 더 깊은 UX 개선
 
-- COM access로 folder enumerate가 안전하면 Windows Outlook folder discovery helper 추가. `kb-win-sync list-mailboxes`로 구현됨.
+- COM access로 folder enumerate가 안전하면 Windows Outlook folder discovery helper 추가. `kb-win-sync list-mailboxes --config <path>`로 config 자동 반영까지 구현됨.
 - automation을 위해 status command에 `--json` output 추가.
 - token 값을 출력하지 않고 token env var 존재를 확인하는 `kb-api serve --print-token-status` 또는 startup banner 추가.
 - template에서 user systemd file을 쓰는 service install helper 추가.

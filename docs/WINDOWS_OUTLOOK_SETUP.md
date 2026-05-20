@@ -22,7 +22,7 @@ repository 밖에 local config를 생성한다.
 
 ```powershell
 kb-win-sync init-config --output "$env:USERPROFILE\kb-win-sync\config.yaml"
-kb-win-sync list-mailboxes
+kb-win-sync list-mailboxes --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 notepad "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
 
@@ -32,10 +32,10 @@ SFTP sync를 사용할 경우 `sync.key_path`는 Windows에 있는 SSH private k
 
 ## Mailbox 대화형 목록
 
-`outlook.folders`를 손으로 수정하기 전에 mailbox picker를 사용한다.
+`outlook.folders`를 손으로 수정하기 전에 mailbox picker를 사용한다. `--config`를 지정하면 선택한 folder가 config에 자동으로 추가된다.
 
 ```powershell
-kb-win-sync list-mailboxes
+kb-win-sync list-mailboxes --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
 
 이 command는 COM automation으로 classic Outlook을 열고 mailbox와 folder를 numeric index와 함께 출력한 뒤 다음을 묻는다.
@@ -44,7 +44,7 @@ kb-win-sync list-mailboxes
 동기화 시키고 싶은 메일함 Index(예: 1,2,3,5):
 ```
 
-쉼표로 구분한 index를 하나 이상 입력한다. command는 `outlook.folders` 아래에 복사할 수 있는 YAML snippet을 출력한다.
+쉼표로 구분한 index를 하나 이상 입력한다. command는 YAML snippet을 출력하고, `--config`가 지정된 경우 해당 snippet을 `outlook.folders` 아래에 자동으로 추가한다.
 
 Example output shape:
 
@@ -59,7 +59,7 @@ Example output shape:
       save_attachments: true
 ```
 
-Import를 실행하기 전에 생성된 `name`, `target_folder`, `tags`를 검토한다.
+Import를 실행하기 전에 config에 추가된 `name`, `target_folder`, `tags`를 검토한다.
 
 ## Outlook Folder 선택
 

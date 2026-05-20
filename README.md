@@ -43,7 +43,7 @@ kb-win-sync init-config --output "$env:USERPROFILE\kb-win-sync\config.yaml"
 그다음 Outlook folder를 찾고 생성된 config를 수정한다.
 
 ```powershell
-kb-win-sync list-mailboxes
+kb-win-sync list-mailboxes --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 kb-win-sync doctor --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
 
@@ -122,7 +122,7 @@ next: kb-api init-config --output ~/.config/kb-api/config.yaml
 
 ```powershell
 kb-win-sync init-config --output "$env:USERPROFILE\kb-win-sync\config.yaml"
-kb-win-sync list-mailboxes
+kb-win-sync list-mailboxes --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 kb-win-sync doctor --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 kb-win-sync status --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml" --dry-run

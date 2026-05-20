@@ -12,7 +12,7 @@ Windows Outlook folder 선택과 Task Scheduler 세부사항은 `docs/WINDOWS_OU
 2. Outlook folder path를 찾아야 하면 다음을 실행한다.
 
 ```powershell
-kb-win-sync list-mailboxes
+kb-win-sync list-mailboxes --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
 
 3. 다음 명령으로 config를 검증하고 status를 확인한다.
