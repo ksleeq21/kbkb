@@ -45,18 +45,42 @@ class CliUsabilityTests(unittest.TestCase):
     def test_api_init_config_creates_file_and_refuses_overwrite(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp) / "config.yaml"
-            result = self.run_cmd([sys.executable, "-m", "kb_api", "init-config", "--output", str(output)], {"HOME": tmp})
+            result = self.run_cmd(
+                [sys.executable, "-m", "kb_api", "init-config", "--output", str(output)],
+                {"HOME": tmp, "SHELL": "/bin/bash"},
+            )
             self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
             self.assertIn("kb-api doctor", result.stdout)
             self.assertIn("ensured directories:", result.stdout)
+            self.assertIn("added shell token exports:", result.stdout)
             text = output.read_text(encoding="utf-8")
             self.assertIn(f'vault_path: "{tmp}/kb/KnowledgeVault-Enriched"', text)
             self.assertTrue((Path(tmp) / "kb" / "KnowledgeVault-Enriched").is_dir())
             self.assertTrue((Path(tmp) / "kb" / "KnowledgeVault-Raw").is_dir())
             self.assertTrue((Path(tmp) / ".local" / "share" / "kb-api" / "enrichment-cache").is_dir())
+            bashrc = Path(tmp) / ".bashrc"
+            rc_text = bashrc.read_text(encoding="utf-8")
+            self.assertIn("# >>> kb-api local tokens >>>", rc_text)
+            self.assertIn("# kb-api local bearer tokens", rc_text)
+            self.assertIn("export KB_API_TOKEN=", rc_text)
+            self.assertIn("export KB_API_ADMIN_TOKEN=", rc_text)
             second = self.run_cmd([sys.executable, "-m", "kb_api", "init-config", "--output", str(output)])
             self.assertEqual(second.returncode, 2)
             self.assertIn("already exists", second.stderr)
+
+    def test_api_init_config_does_not_duplicate_existing_token_block(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rc_path = Path(tmp) / ".zshrc"
+            rc_path.write_text("# >>> kb-api local tokens >>>\nexport KB_API_TOKEN='existing'\n# <<< kb-api local tokens <<<\n", encoding="utf-8")
+            output = Path(tmp) / "config.yaml"
+            result = self.run_cmd(
+                [sys.executable, "-m", "kb_api", "init-config", "--output", str(output)],
+                {"HOME": tmp, "SHELL": "/bin/zsh"},
+            )
+            self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+            self.assertIn("shell token exports already exist:", result.stdout)
+            rc_text = rc_path.read_text(encoding="utf-8")
+            self.assertEqual(rc_text.count("# >>> kb-api local tokens >>>"), 1)
 
     def test_api_validate_reports_missing_vault(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

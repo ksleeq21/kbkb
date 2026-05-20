@@ -11,6 +11,17 @@
 
 두 token은 서로 다른 값이어야 한다.
 
+## init-config 자동 생성
+
+`kb-api init-config`는 config와 기본 directory를 만들 때 현재 shell에 맞는 rc file에도 token export block을 추가한다.
+
+```bash
+kb-api init-config --output ~/.config/kb-api/config.yaml
+source ~/.zshrc  # bash를 사용하면 source ~/.bashrc
+```
+
+추가되는 block에는 `kb-api` local bearer token 용도와 보안 주의 주석이 포함된다. 같은 marker block이 이미 있으면 중복으로 추가하지 않는다.
+
 ## 임시 Shell Session용 Token 생성
 
 Linux shell에서 다음을 실행한다.

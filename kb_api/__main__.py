@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import os
+import secrets
 import sys
 from pathlib import Path
 
@@ -11,6 +13,10 @@ from .indexer import reindex
 from .server import serve
 from .templates import render_linux_config_template
 from kb_win_sync.simple_yaml import load_simple_yaml
+
+
+TOKEN_RC_BEGIN = "# >>> kb-api local tokens >>>"
+TOKEN_RC_END = "# <<< kb-api local tokens <<<"
 
 
 def _ensure_api_directories(config: ApiConfig) -> list[Path]:
@@ -30,6 +36,37 @@ def _ensure_api_directories(config: ApiConfig) -> list[Path]:
     return ensured
 
 
+def _select_shell_rc_file(home: Path) -> Path:
+    shell = Path(os.environ.get("SHELL", "")).name
+    if shell == "bash":
+        return home / ".bashrc"
+    return home / ".zshrc"
+
+
+def _ensure_shell_tokens(config: ApiConfig) -> tuple[Path, bool]:
+    home = Path.home()
+    rc_path = _select_shell_rc_file(home)
+    existing = rc_path.read_text(encoding="utf-8") if rc_path.exists() else ""
+    if TOKEN_RC_BEGIN in existing:
+        return rc_path, False
+
+    block = "\n".join(
+        [
+            "",
+            TOKEN_RC_BEGIN,
+            "# kb-api local bearer tokens for read-only search/context endpoints and admin reindex.",
+            "# Keep these values private; rotate them if they are copied into logs, commits, or issues.",
+            f"export {config.token_env}='{secrets.token_urlsafe(32)}'",
+            f"export {config.admin_token_env}='{secrets.token_urlsafe(32)}'",
+            TOKEN_RC_END,
+            "",
+        ]
+    )
+    with rc_path.open("a", encoding="utf-8") as fh:
+        fh.write(block)
+    return rc_path, True
+
+
 def _write_config_template(output_arg: str, *, force: bool) -> int:
     output = Path(output_arg)
     if output.exists() and not force:
@@ -41,14 +78,20 @@ def _write_config_template(output_arg: str, *, force: bool) -> int:
     output.write_text(config_text, encoding="utf-8")
     config = parse_config(load_simple_yaml(config_text))
     ensured = _ensure_api_directories(config)
+    rc_path, wrote_tokens = _ensure_shell_tokens(config)
     print(f"created config: {output}")
     print("ensured directories:")
     for directory in ensured:
         print(f"  {directory}")
+    if wrote_tokens:
+        print(f"added shell token exports: {rc_path}")
+    else:
+        print(f"shell token exports already exist: {rc_path}")
     print("next:")
-    print(f"  1. edit {output} if you need different vault paths")
-    print(f"  2. kb-api doctor --config {output}")
-    print(f"  3. kb-api reindex --config {output}")
+    print(f"  1. restart your shell or run: source {rc_path}")
+    print(f"  2. edit {output} if you need different vault paths")
+    print(f"  3. kb-api doctor --config {output}")
+    print(f"  4. kb-api reindex --config {output}")
     return 0
 
 

@@ -75,7 +75,7 @@ python3 -m pip install -e ".[api]"
 kb-api init-config --output ~/.config/kb-api/config.yaml
 ```
 
-`init-config`는 현재 user의 home directory 기준으로 기본 vault, raw vault, database parent, enrichment cache directory를 함께 생성한다.
+`init-config`는 현재 user의 home directory 기준으로 기본 vault, raw vault, database parent, enrichment cache directory를 만들고, `~/.zshrc` 또는 `~/.bashrc`에 `KB_API_TOKEN`과 `KB_API_ADMIN_TOKEN` export block을 추가한다.
 
 `~/.config/kb-api/config.yaml`에서 검색 대상 vault와 DB path를 설정한다. Cline enrichment를 사용하는 운영에서는 `vault_path`가 raw sync directory가 아니라 enriched Markdown directory를 가리켜야 한다.
 
@@ -97,13 +97,10 @@ server:
   port: 8765
 ```
 
-API token을 생성하고 shell 또는 systemd environment file에 설정한다.
+새 shell을 열거나 rc file을 source해서 token export를 현재 shell에 반영한다. systemd service를 사용할 때는 별도 environment file을 설정한다.
 
 ```bash
-python3 -c 'import secrets; print(secrets.token_urlsafe(32))'
-python3 -c 'import secrets; print(secrets.token_urlsafe(32))'
-export KB_API_TOKEN='replace-with-generated-token'
-export KB_API_ADMIN_TOKEN='replace-with-different-generated-token'
+source ~/.zshrc  # bash를 사용하면 source ~/.bashrc
 ```
 
 설정을 검증한다.

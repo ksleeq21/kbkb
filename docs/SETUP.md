@@ -144,7 +144,7 @@ repo 밖에 local config를 만든다.
 kb-api init-config --output ~/.config/kb-api/config.yaml
 ```
 
-`init-config`는 현재 user의 home directory 기준으로 기본 vault, raw vault, database parent, enrichment cache directory를 함께 생성한다.
+`init-config`는 현재 user의 home directory 기준으로 기본 vault, raw vault, database parent, enrichment cache directory를 만들고, `~/.zshrc` 또는 `~/.bashrc`에 `KB_API_TOKEN`과 `KB_API_ADMIN_TOKEN` export block을 추가한다.
 
 수정한다.
 
@@ -170,8 +170,7 @@ kb-api status --config ~/.config/kb-api/config.yaml
 수동으로 실행한다.
 
 ```bash
-export KB_API_TOKEN='replace-with-generated-token'
-export KB_API_ADMIN_TOKEN='replace-with-different-generated-token'
+source ~/.zshrc  # bash를 사용하면 source ~/.bashrc
 kb-api serve --config ~/.config/kb-api/config.yaml
 ```
 
