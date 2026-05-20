@@ -162,10 +162,12 @@ kb-api reindex
 kb-api status
 ```
 
-대형 vault에서 일부 파일만 먼저 검증하려면 raw vault 기준 상대 경로를 지정한다. 결과는 enriched vault의 같은 상대 경로에 생성된다.
+대형 vault에서 일부 파일만 먼저 검증하려면 raw vault 기준 상대 파일 또는 폴더 경로를 지정한다. 결과는 enriched vault의 같은 상대 경로에 생성된다.
 
 ```bash
 kb-api enrich --file "20_Emails/ProjectA/example.md"
+kb-api enrich --folder "20_Emails/ProjectA/2026/01"
+kb-api enrich --folder "20_Emails/ProjectA/2026"
 ```
 
 `failed`가 0이 아니면 실패한 파일과 stage가 stderr에 `ENRICH_FAILED`로 출력된다. 더 자세한 처리 흐름과 traceback이 필요하면 `--verbose`를 붙인다.
@@ -173,6 +175,8 @@ kb-api enrich --file "20_Emails/ProjectA/example.md"
 ```bash
 kb-api enrich --file "20_Emails/ProjectA/example.md" --verbose
 ```
+
+실행 중에는 `INFO [1/100] enrich rel=...` 형식으로 진행률이 stderr에 출력된다. 완료 후 stdout에는 target, elapsed time, 성공/실패 수가 영문 summary로 출력된다.
 
 4. API를 시작한다.
 

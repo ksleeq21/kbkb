@@ -112,6 +112,156 @@ class CliUsabilityTests(unittest.TestCase):
             self.assertIn("kb-api init-config --output", result.stderr)
             self.assertIn("--config <path>", result.stderr)
 
+    def test_api_enrich_accepts_folder_option(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            raw = root / "raw"
+            enriched = root / "enriched"
+            cache = root / "cache"
+            raw_note = raw / "20_Emails" / "ProjectA" / "2026" / "01" / "example.md"
+            cache_file = cache / "20_Emails" / "ProjectA" / "2026" / "01" / "example.metadata.json"
+            raw_note.parent.mkdir(parents=True)
+            cache_file.parent.mkdir(parents=True)
+            raw_note.write_text("---\ntype: \"email\"\ntags:\n  - \"email\"\n---\n# Folder\nbody", encoding="utf-8")
+            cache_file.write_text('{"llm_summary": "folder option"}', encoding="utf-8")
+            config = root / "config.yaml"
+            config.write_text(
+                f'vault_path: "{enriched}"\n'
+                f'raw_vault_path: "{raw}"\n'
+                f'enriched_vault_path: "{enriched}"\n'
+                f'enrichment_cache_path: "{cache}"\n'
+                'attachment_policy: "copy"\n'
+                f'database_path: "{root / "kb.sqlite"}"\n',
+                encoding="utf-8",
+            )
+
+            result = self.run_cmd(
+                [
+                    sys.executable,
+                    "-m",
+                    "kb_api",
+                    "enrich",
+                    "--config",
+                    str(config),
+                    "--use-cache-only",
+                    "--folder",
+                    "20_Emails/ProjectA/2026",
+                ]
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+            self.assertIn("raw_notes=1", result.stdout)
+            self.assertIn("✓ Enrichment SUCCESS", result.stdout)
+            self.assertIn('Target: folder "20_Emails/ProjectA/2026"', result.stdout)
+            self.assertRegex(result.stdout, r"Elapsed: \d+\.\d{2}s")
+            self.assertIn("  - Succeeded            : 1", result.stdout)
+            self.assertIn("  - Failed               : 0", result.stdout)
+            self.assertIn("INFO [1/1] enrich rel=20_Emails/ProjectA/2026/01/example.md", result.stderr)
+            self.assertTrue((enriched / "20_Emails" / "ProjectA" / "2026" / "01" / "example.md").exists())
+
+    def test_api_enrich_file_prints_readable_english_summary_with_elapsed_time(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            raw = root / "raw"
+            enriched = root / "enriched"
+            cache = root / "cache"
+            raw_note = raw / "20_Emails" / "ProjectA" / "example.md"
+            cache_file = cache / "20_Emails" / "ProjectA" / "example.metadata.json"
+            raw_note.parent.mkdir(parents=True)
+            cache_file.parent.mkdir(parents=True)
+            raw_note.write_text("---\ntype: \"email\"\n---\n# File\nbody", encoding="utf-8")
+            cache_file.write_text('{"llm_summary": "file option"}', encoding="utf-8")
+            config = root / "config.yaml"
+            config.write_text(
+                f'vault_path: "{enriched}"\n'
+                f'raw_vault_path: "{raw}"\n'
+                f'enriched_vault_path: "{enriched}"\n'
+                f'enrichment_cache_path: "{cache}"\n'
+                'attachment_policy: "copy"\n'
+                f'database_path: "{root / "kb.sqlite"}"\n',
+                encoding="utf-8",
+            )
+
+            result = self.run_cmd(
+                [
+                    sys.executable,
+                    "-m",
+                    "kb_api",
+                    "enrich",
+                    "--config",
+                    str(config),
+                    "--use-cache-only",
+                    "--file",
+                    "20_Emails/ProjectA/example.md",
+                ]
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+            self.assertIn("✓ Enrichment SUCCESS", result.stdout)
+            self.assertIn('Target: file "20_Emails/ProjectA/example.md"', result.stdout)
+            self.assertRegex(result.stdout, r"Elapsed: \d+\.\d{2}s")
+            self.assertIn("  - Total Markdown files : 1", result.stdout)
+            self.assertIn("  - Succeeded            : 1", result.stdout)
+            self.assertIn("  - Failed               : 0", result.stdout)
+
+    def test_api_enrich_folder_continues_after_failed_file_and_reports_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            raw = root / "raw"
+            enriched = root / "enriched"
+            cache = root / "cache"
+            good_note = raw / "2026" / "01" / "good.md"
+            bad_note = raw / "2026" / "01" / "bad.md"
+            good_cache = cache / "2026" / "01" / "good.metadata.json"
+            bad_cache = cache / "2026" / "01" / "bad.metadata.json"
+            good_note.parent.mkdir(parents=True)
+            good_cache.parent.mkdir(parents=True)
+            good_note.write_text("---\ntype: \"email\"\n---\n# Good\nbody", encoding="utf-8")
+            bad_note.write_text("---\ntype: \"email\"\n---\n# Bad\nbody", encoding="utf-8")
+            good_cache.write_text('{"llm_summary": "good"}', encoding="utf-8")
+            bad_cache.write_text('{"type": "email"}', encoding="utf-8")
+            config = root / "config.yaml"
+            config.write_text(
+                f'vault_path: "{enriched}"\n'
+                f'raw_vault_path: "{raw}"\n'
+                f'enriched_vault_path: "{enriched}"\n'
+                f'enrichment_cache_path: "{cache}"\n'
+                'attachment_policy: "copy"\n'
+                f'database_path: "{root / "kb.sqlite"}"\n',
+                encoding="utf-8",
+            )
+
+            result = self.run_cmd(
+                [
+                    sys.executable,
+                    "-m",
+                    "kb_api",
+                    "enrich",
+                    "--config",
+                    str(config),
+                    "--use-cache-only",
+                    "--folder",
+                    "2026",
+                ]
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("raw_notes=2", result.stdout)
+            self.assertIn("enriched_notes=1", result.stdout)
+            self.assertIn("failed=1", result.stdout)
+            self.assertIn("! Enrichment COMPLETED WITH FAILURES", result.stdout)
+            self.assertIn('Target: folder "2026"', result.stdout)
+            self.assertRegex(result.stdout, r"Elapsed: \d+\.\d{2}s")
+            self.assertIn("  - Total Markdown files : 2", result.stdout)
+            self.assertIn("  - Succeeded            : 1", result.stdout)
+            self.assertIn("  - Failed               : 1", result.stdout)
+            self.assertIn("Check stderr for ENRICH_FAILED entries.", result.stdout)
+            self.assertIn("INFO [1/2] enrich rel=2026/01/bad.md", result.stderr)
+            self.assertIn("INFO [2/2] enrich rel=2026/01/good.md", result.stderr)
+            self.assertIn("ENRICH_FAILED action=skip rel=2026/01/bad.md", result.stderr)
+            self.assertTrue((enriched / "2026" / "01" / "good.md").exists())
+            self.assertFalse((enriched / "2026" / "01" / "bad.md").exists())
+
     def test_api_enrich_reports_failed_file_and_verbose_traceback(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

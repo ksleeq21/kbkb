@@ -22,6 +22,8 @@ CACHE_FILE="$HOME/.local/share/kb-api/enrichment-cache/${REL_PATH%.md}.metadata.
 
 실제 환경의 raw vault 또는 cache path가 다르면 위 값만 바꾼다.
 
+여러 파일을 작은 묶음으로 검증하려면 raw vault 기준 상대 폴더를 지정한다. 예를 들어 `--folder "20_Emails/ProjectA/2026/01"`은 해당 폴더 아래의 `.md` 파일을 처리하고, `--folder "20_Emails/ProjectA/2026"`은 그 아래의 `01`, `02` 같은 하위 폴더까지 재귀적으로 처리한다.
+
 ## 직접 Cline 실행
 
 Cline은 정확히 JSON object 하나만 출력해야 한다. 허용되는 key는 `tags`, `llm_tags`, `llm_summary`뿐이다.

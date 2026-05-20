@@ -58,8 +58,12 @@ def enrich_vault(
     cline_command: str = "cline",
     metadata_provider: MetadataProvider | None = None,
     raw_file_path: str | Path | None = None,
+    raw_folder_path: str | Path | None = None,
     verbose: bool = False,
 ) -> EnrichmentStats:
+    if raw_file_path is not None and raw_folder_path is not None:
+        raise ValueError("--file and --folder cannot be used together")
+
     raw_root = config.raw_vault_path
     enriched_root = config.enriched_vault_path or config.vault_path
     cache_root = config.enrichment_cache_path
@@ -77,25 +81,29 @@ def enrich_vault(
 
     provider = metadata_provider or ClineCliMetadataProvider(cline_command)
     logger.debug(
-        "ENRICH_START raw_root=%s enriched_root=%s cache_root=%s single_file=%s use_cache_only=%s provider=%s cline_command=%s",
+        "ENRICH_START raw_root=%s enriched_root=%s cache_root=%s single_file=%s folder=%s use_cache_only=%s provider=%s cline_command=%s",
         raw_root,
         enriched_root,
         cache_root,
         raw_file_path or "(all)",
+        raw_folder_path or "(all)",
         use_cache_only,
         type(provider).__name__,
         cline_command,
     )
-    copied = 0 if raw_file_path is not None else _copy_non_markdown_files(raw_root, enriched_root, config.ignore_dirs)
+    partial_target = raw_file_path is not None or raw_folder_path is not None
+    copied = 0 if partial_target else _copy_non_markdown_files(raw_root, enriched_root, config.ignore_dirs)
     raw_notes = 0
     enriched_notes = 0
     failed = 0
-    raw_files = [_resolve_single_raw_markdown(raw_root, raw_file_path, config.ignore_dirs)] if raw_file_path is not None else scan_markdown(raw_root, config.ignore_dirs)
-    logger.debug("ENRICH_PLAN markdown_files=%s copied_files=%s", len(raw_files), copied)
-    for raw_file in raw_files:
+    raw_files = _select_raw_markdown_files(raw_root, config.ignore_dirs, raw_file_path, raw_folder_path)
+    total_files = len(raw_files)
+    logger.info("ENRICH_PLAN markdown_files=%s copied_files=%s", total_files, copied)
+    for index, raw_file in enumerate(raw_files, start=1):
         raw_notes += 1
         rel = raw_file.relative_to(raw_root)
         stage = "load_metadata"
+        logger.info("[%s/%s] enrich rel=%s", index, total_files, rel.as_posix())
         try:
             logger.debug("ENRICH_FILE_START rel=%s raw=%s", rel.as_posix(), raw_file)
             metadata = _load_or_create_metadata(raw_file, cache_root / rel.with_suffix(".metadata.json"), use_cache_only, provider)
@@ -112,6 +120,7 @@ def enrich_vault(
             output.write_text(enriched_text, encoding="utf-8")
             enriched_notes += 1
             logger.debug("ENRICH_FILE_DONE rel=%s output=%s", rel.as_posix(), output)
+            logger.info("[%s/%s] success rel=%s", index, total_files, rel.as_posix())
         except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as exc:
             failed += 1
             logger.warning(
@@ -122,8 +131,27 @@ def enrich_vault(
                 exc,
                 exc_info=verbose,
             )
-    logger.debug("ENRICH_DONE raw_notes=%s enriched_notes=%s copied_files=%s failed=%s", raw_notes, enriched_notes, copied, failed)
+    logger.info(
+        "ENRICH_DONE total=%s succeeded=%s failed=%s copied_files=%s",
+        raw_notes,
+        enriched_notes,
+        failed,
+        copied,
+    )
     return EnrichmentStats(raw_notes=raw_notes, enriched_notes=enriched_notes, copied_files=copied, failed=failed)
+
+
+def _select_raw_markdown_files(
+    raw_root: Path,
+    ignore_dirs: list[str],
+    raw_file_path: str | Path | None,
+    raw_folder_path: str | Path | None,
+) -> list[Path]:
+    if raw_file_path is not None:
+        return [_resolve_single_raw_markdown(raw_root, raw_file_path, ignore_dirs)]
+    if raw_folder_path is not None:
+        return _resolve_folder_raw_markdown(raw_root, raw_folder_path, ignore_dirs)
+    return scan_markdown(raw_root, ignore_dirs)
 
 
 def _resolve_single_raw_markdown(raw_root: Path, raw_file_path: str | Path, ignore_dirs: list[str]) -> Path:
@@ -138,6 +166,20 @@ def _resolve_single_raw_markdown(raw_root: Path, raw_file_path: str | Path, igno
     if not raw_file.exists() or not raw_file.is_file():
         raise ValueError(f"--file does not exist under raw_vault_path: {rel.as_posix()}")
     return raw_file
+
+
+def _resolve_folder_raw_markdown(raw_root: Path, raw_folder_path: str | Path, ignore_dirs: list[str]) -> list[Path]:
+    rel = Path(raw_folder_path)
+    if rel.is_absolute() or ".." in rel.parts or str(raw_folder_path).strip() == "":
+        raise ValueError("--folder must be a raw_vault_path-relative directory path")
+    if rel.suffix.lower() == ".md":
+        raise ValueError("--folder must point to a directory, not a .md file")
+    if set(rel.parts) & set(ignore_dirs):
+        raise ValueError("--folder points inside an ignored directory")
+    raw_folder = raw_root / rel
+    if not raw_folder.exists() or not raw_folder.is_dir():
+        raise ValueError(f"--folder does not exist under raw_vault_path: {rel.as_posix()}")
+    return scan_markdown(raw_folder, ignore_dirs)
 
 
 def render_enriched_markdown(raw_text: str, llm_metadata: dict[str, Any]) -> str:

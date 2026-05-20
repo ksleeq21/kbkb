@@ -127,6 +127,52 @@ class ApiTests(unittest.TestCase):
             self.assertFalse(os.path.exists(os.path.join(enriched, "20_Emails", "ProjectA", "second.md")))
             self.assertFalse(os.path.exists(os.path.join(enriched, "90_Attachments", "email", "abc", "report.txt")))
 
+    def test_enrichment_can_process_relative_markdown_folder_recursively(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            raw = os.path.join(tmp, "raw")
+            enriched = os.path.join(tmp, "enriched")
+            cache = os.path.join(tmp, "cache")
+            os.makedirs(os.path.join(raw, "20_Emails", "ProjectA", "2026", "01"))
+            os.makedirs(os.path.join(raw, "20_Emails", "ProjectA", "2026", "02"))
+            os.makedirs(os.path.join(raw, "20_Emails", "ProjectA", "2025", "12"))
+            os.makedirs(os.path.join(raw, "90_Attachments", "email", "abc"))
+            first = os.path.join(raw, "20_Emails", "ProjectA", "2026", "01", "first.md")
+            second = os.path.join(raw, "20_Emails", "ProjectA", "2026", "02", "second.md")
+            older = os.path.join(raw, "20_Emails", "ProjectA", "2025", "12", "older.md")
+            attachment = os.path.join(raw, "90_Attachments", "email", "abc", "report.txt")
+            for path, title in [(first, "First"), (second, "Second"), (older, "Older")]:
+                with open(path, "w", encoding="utf-8") as fh:
+                    fh.write(f"---\ntype: \"email\"\ntags:\n  - \"email\"\nsubject: \"{title}\"\n---\n# {title}\n본문")
+            with open(attachment, "w", encoding="utf-8") as fh:
+                fh.write("attachment")
+            for rel, summary in [
+                ("20_Emails/ProjectA/2026/01/first.metadata.json", "1월 테스트"),
+                ("20_Emails/ProjectA/2026/02/second.metadata.json", "2월 테스트"),
+                ("20_Emails/ProjectA/2025/12/older.metadata.json", "작년 테스트"),
+            ]:
+                cache_file = os.path.join(cache, rel)
+                os.makedirs(os.path.dirname(cache_file), exist_ok=True)
+                with open(cache_file, "w", encoding="utf-8") as fh:
+                    fh.write(json.dumps({"tags": ["테스트"], "llm_summary": summary}, ensure_ascii=False))
+
+            config = ApiConfig(
+                vault_path=enriched,
+                database_path=os.path.join(tmp, "kb.sqlite"),
+                raw_vault_path=raw,
+                enriched_vault_path=enriched,
+                enrichment_cache_path=cache,
+            )
+            stats = enrich_vault(config, use_cache_only=True, raw_folder_path="20_Emails/ProjectA/2026")
+
+            self.assertEqual(stats.raw_notes, 2)
+            self.assertEqual(stats.enriched_notes, 2)
+            self.assertEqual(stats.copied_files, 0)
+            self.assertEqual(stats.failed, 0)
+            self.assertTrue(os.path.exists(os.path.join(enriched, "20_Emails", "ProjectA", "2026", "01", "first.md")))
+            self.assertTrue(os.path.exists(os.path.join(enriched, "20_Emails", "ProjectA", "2026", "02", "second.md")))
+            self.assertFalse(os.path.exists(os.path.join(enriched, "20_Emails", "ProjectA", "2025", "12", "older.md")))
+            self.assertFalse(os.path.exists(os.path.join(enriched, "90_Attachments", "email", "abc", "report.txt")))
+
     def test_enrichment_can_use_injected_metadata_provider(self) -> None:
         class FakeProvider:
             def __init__(self) -> None:
@@ -180,6 +226,14 @@ class ApiTests(unittest.TestCase):
                 enrich_vault(config, use_cache_only=True, raw_file_path="/tmp/outside.md")
             with self.assertRaises(ValueError):
                 enrich_vault(config, use_cache_only=True, raw_file_path="90_Attachments/email/report.txt")
+            with self.assertRaises(ValueError):
+                enrich_vault(config, use_cache_only=True, raw_folder_path="../outside")
+            with self.assertRaises(ValueError):
+                enrich_vault(config, use_cache_only=True, raw_folder_path="/tmp/outside")
+            with self.assertRaises(ValueError):
+                enrich_vault(config, use_cache_only=True, raw_folder_path="missing")
+            with self.assertRaises(ValueError):
+                enrich_vault(config, use_cache_only=True, raw_file_path="a.md", raw_folder_path="2026")
 
     def test_cline_event_stream_parser_extracts_completion_result_text(self) -> None:
         stdout = "\n".join(
