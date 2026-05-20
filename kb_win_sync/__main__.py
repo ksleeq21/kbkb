@@ -33,6 +33,25 @@ def _ensure_windows_directories(config) -> list[Path]:
     return ensured
 
 
+def _configure_logging(log_path: Path, *, verbose: bool) -> None:
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    level = logging.DEBUG if verbose else logging.INFO
+    formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+    root = logging.getLogger()
+    root.handlers.clear()
+    root.setLevel(level)
+
+    file_handler = logging.FileHandler(log_path, encoding="utf-8")
+    file_handler.setLevel(level)
+    file_handler.setFormatter(formatter)
+    root.addHandler(file_handler)
+
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(level)
+    console_handler.setFormatter(formatter)
+    root.addHandler(console_handler)
+
+
 def _write_config_template(output_arg: str | None, *, force: bool) -> int:
     if not output_arg:
         print("ERROR: --output is required for init-config", file=sys.stderr)
@@ -197,6 +216,7 @@ def save_email_artifacts(email: EmailMessage, vault_path: Path, *, save_msg: boo
                 attachment.saver(vault_path / rel)
                 saved_attachments.append(replace(attachment, saved_path=rel.as_posix()))
                 attachment_count += 1
+                logging.info("Saved attachment message_key=%s path=%s", key, rel.as_posix())
             except Exception as exc:
                 logging.error("Attachment save failed message_key=%s filename=%s error=%s", key, attachment.filename, exc)
                 saved_attachments.append(attachment)
@@ -212,6 +232,7 @@ def save_email_artifacts(email: EmailMessage, vault_path: Path, *, save_msg: boo
             email.original_msg_saver(vault_path / rel)
             original_msg = rel.as_posix()
             msg_count = 1
+            logging.info("Saved original .msg message_key=%s path=%s", key, rel.as_posix())
         except Exception as exc:
             logging.error("Original .msg save failed message_key=%s error=%s", key, exc)
     elif save_msg:
@@ -240,6 +261,14 @@ def run_import(
     force: bool,
     config_path: str,
 ) -> dict[str, int]:
+    logging.info(
+        "Starting kb-win-sync import dry_run=%s folder_filter=%s force=%s vault_path=%s state_path=%s",
+        dry_run,
+        folder_filter or "(all)",
+        force,
+        config.vault_path,
+        config.state_path,
+    )
     store = StateStore(config.state_path)
     state = store.load()
     summary = {
@@ -255,18 +284,34 @@ def run_import(
     for folder in config.folders:
         if folder_filter and folder.name != folder_filter:
             excluded_folders += 1
+            logging.info("Skipping folder name=%s because folder_filter=%s", folder.name, folder_filter)
             continue
         selected_folders += 1
+        folder_scanned_before = summary["scanned"]
+        folder_imported_before = summary["imported"]
+        folder_skipped_before = summary["skipped_duplicate"]
+        folder_failed_before = summary["failed"]
+        logging.info(
+            "Scanning Outlook folder name=%s outlook_path=%s target_folder=%s save_msg=%s save_attachments=%s",
+            folder.name,
+            folder.outlook_path,
+            folder.target_folder,
+            folder.save_msg,
+            folder.save_attachments,
+        )
         for email in client.iter_folder_messages(folder):
             summary["scanned"] += 1
             path = target_path(email, folder.target_folder)
             key = message_key(email)
+            logging.info("Scanned message key=%s folder=%s subject=%r target=%s", key, folder.name, email.subject, path)
             if key in state.imported and not force:
                 summary["skipped_duplicate"] += 1
+                logging.info("Skipped duplicate message key=%s subject=%r target=%s", key, email.subject, path)
                 if dry_run:
                     print(f"skip duplicate key={key} subject={email.subject!r} target={path}")
                 continue
             if dry_run:
+                logging.info("Dry-run would import message key=%s subject=%r target=%s", key, email.subject, path)
                 print(f"import key={key} sender={email.sender!r} received={email.received!r} subject={email.subject!r} target={path}")
                 continue
             try:
@@ -283,16 +328,39 @@ def run_import(
                 summary["imported"] += 1
                 summary["attachments_saved"] += attachments_saved
                 summary["msg_saved"] += msg_saved
+                logging.info(
+                    "Imported message key=%s subject=%r target=%s attachments_saved=%s msg_saved=%s",
+                    key,
+                    email.subject,
+                    path,
+                    attachments_saved,
+                    msg_saved,
+                )
             except OSError as exc:
                 summary["failed"] += 1
                 logging.error("Import failed for message_key=%s target=%s error=%s", key, path, exc)
+        logging.info(
+            "Folder complete name=%s scanned=%s imported=%s skipped_duplicate=%s failed=%s",
+            folder.name,
+            summary["scanned"] - folder_scanned_before,
+            summary["imported"] - folder_imported_before,
+            summary["skipped_duplicate"] - folder_skipped_before,
+            summary["failed"] - folder_failed_before,
+        )
     print(f"folders selected={selected_folders} excluded={excluded_folders}")
     print("summary " + " ".join(f"{key}={value}" for key, value in summary.items()))
+    logging.info(
+        "Import summary selected_folders=%s excluded_folders=%s %s",
+        selected_folders,
+        excluded_folders,
+        " ".join(f"{key}={value}" for key, value in summary.items()),
+    )
     if dry_run:
         print(f"next: kb-win-sync --config {config_path}")
     else:
         print("next: run enrichment/reindex on Linux after raw Markdown sync completes")
         store.save(state)
+        logging.info("Saved import state path=%s imported_count=%s", config.state_path, len(state.imported))
     return summary
 
 
@@ -359,12 +427,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: no Outlook folders configured. Run: kb-win-sync list-mailboxes --config {args.config}", file=sys.stderr)
         return 2
 
-    config.log_path.parent.mkdir(parents=True, exist_ok=True)
-    logging.basicConfig(
-        filename=config.log_path,
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s %(levelname)s %(message)s",
-    )
+    _configure_logging(config.log_path, verbose=args.verbose)
+    logging.info("Using config=%s log_path=%s", args.config, config.log_path)
 
     if not args.sync_only:
         try:
@@ -372,6 +436,7 @@ def main(argv: list[str] | None = None) -> int:
         except OutlookUnavailable as exc:
             logging.error("Outlook unavailable: %s", exc)
             return 2
+        logging.info("Outlook client initialized")
         run_import(
             config,
             client,
@@ -382,6 +447,7 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     if not args.import_only and not args.dry_run:
+        logging.info("Starting SFTP sync enabled=%s remote=%s:%s", config.sync.enabled, config.sync.host, config.sync.remote_path)
         uploaded = SftpSyncer(config.sync).sync(config.vault_path)
         logging.info("SFTP sync uploaded %s files", uploaded)
     return 0

@@ -131,6 +131,8 @@ dry-run 결과가 올바르면 다음을 실행한다.
 kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
 
+실행 중에는 콘솔과 `log_path`에 INFO 로그가 함께 기록된다. 로그에는 config/log path, Outlook client 초기화, folder scan 시작/완료, message import/duplicate skip, attachment와 `.msg` 저장, 최종 summary가 포함된다. 더 자세한 로그가 필요하면 `--verbose`를 추가한다.
+
 확인할 내용:
 
 - Markdown file이 설정된 `vault_path` 아래에 나타난다.

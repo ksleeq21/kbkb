@@ -7,7 +7,7 @@ from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
 
-from kb_win_sync.__main__ import _append_folder_config_snippets, parse_mailbox_selection, run_import, save_email_artifacts
+from kb_win_sync.__main__ import _append_folder_config_snippets, _configure_logging, parse_mailbox_selection, run_import, save_email_artifacts
 from kb_win_sync.config import OutlookFolderConfig, SyncConfig, WinConfig, load_config, parse_config
 from kb_win_sync.email_model import EmailAttachment, EmailMessage
 from kb_win_sync.render import message_key, render_markdown, sanitize_filename, target_path
@@ -206,6 +206,66 @@ sync:
             self.assertIn("summary scanned=1 imported=0", output.getvalue())
             self.assertIn("next: kb-win-sync --config", output.getvalue())
             self.assertFalse(config.state_path.exists())
+
+    def test_run_import_logs_progress_to_console_and_file(self) -> None:
+        class FakeClient:
+            def iter_folder_messages(self, folder: OutlookFolderConfig):
+                self.folder = folder
+
+                def write_text(value: str):
+                    def saver(path: Path) -> None:
+                        path.write_text(value, encoding="utf-8")
+
+                    return saver
+
+                return [
+                    EmailMessage(
+                        subject="Real import",
+                        sender="Kim <kim@example.test>",
+                        received="2026-05-19T09:15:00+09:00",
+                        body="body",
+                        message_id="real-import-message",
+                        attachments=[EmailAttachment("report.txt", saver=write_text("attachment"))],
+                        original_msg_saver=write_text("msg"),
+                    )
+                ]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config = WinConfig(
+                vault_path=root / "vault",
+                state_path=root / "state.json",
+                log_path=root / "sync.log",
+                folders=[
+                    OutlookFolderConfig(
+                        name="project-a",
+                        outlook_path="\\Mailbox\\Inbox\\_KB\\ProjectA",
+                        target_folder="20_Emails/ProjectA",
+                        save_msg=True,
+                        save_attachments=True,
+                    )
+                ],
+                sync=SyncConfig(enabled=False),
+            )
+            output = StringIO()
+            with redirect_stdout(output):
+                _configure_logging(config.log_path, verbose=False)
+                summary = run_import(
+                    config,
+                    FakeClient(),
+                    dry_run=False,
+                    folder_filter=None,
+                    force=False,
+                    config_path=str(root / "config.yaml"),
+                )
+            self.assertEqual(summary["imported"], 1)
+            console = output.getvalue()
+            self.assertIn("Starting kb-win-sync import", console)
+            self.assertIn("Scanning Outlook folder name=project-a", console)
+            self.assertIn("Imported message key=", console)
+            log_text = config.log_path.read_text(encoding="utf-8")
+            self.assertIn("Import summary selected_folders=1", log_text)
+            self.assertIn("Saved import state", log_text)
 
     def test_incremental_sync_manifest_tracks_changed_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
