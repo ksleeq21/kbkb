@@ -1,11 +1,11 @@
-# Windows Outlook Setup
+# Windows Outlook 설정
 
-This guide covers Outlook folder selection, first manual import, and Task Scheduler registration.
+이 guide는 Outlook folder 선택, 첫 수동 import, Task Scheduler 등록을 다룬다.
 
-## Prerequisites
+## 사전 요구사항
 
-- Use classic Microsoft Outlook desktop, not New Outlook.
-- Install Windows optional dependencies:
+- New Outlook이 아니라 classic Microsoft Outlook desktop을 사용한다.
+- Windows optional dependency를 설치한다.
 
 ```powershell
 python -m venv .venv
@@ -13,12 +13,12 @@ python -m venv .venv
 python -m pip install -e ".[windows]"
 ```
 
-- Keep the Obsidian vault outside the source repository.
-- Create a dedicated Outlook folder such as `_KB` and move only selected emails into that folder.
+- Obsidian vault는 source repository 밖에 둔다.
+- `_KB` 같은 전용 Outlook folder를 만들고 선택한 email만 그 folder로 옮긴다.
 
-## Create Config
+## Config 생성
 
-Generate a local config outside the repository:
+repository 밖에 local config를 생성한다.
 
 ```powershell
 kb-win-sync init-config --output "$env:USERPROFILE\kb-win-sync\config.yaml"
@@ -26,23 +26,23 @@ kb-win-sync list-mailboxes
 notepad "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
 
-The generated file is a template. Edit `vault_path`, `outlook.folders`, and optional `sync`.
+생성된 file은 template이다. `vault_path`, `outlook.folders`, 선택적 `sync`를 수정한다.
 
-## List Mailboxes Interactively
+## Mailbox 대화형 목록
 
-Use the mailbox picker before editing `outlook.folders` by hand:
+`outlook.folders`를 손으로 수정하기 전에 mailbox picker를 사용한다.
 
 ```powershell
 kb-win-sync list-mailboxes
 ```
 
-The command opens classic Outlook through COM automation, prints mailboxes and folders with numeric indexes, and prompts:
+이 command는 COM automation으로 classic Outlook을 열고 mailbox와 folder를 numeric index와 함께 출력한 뒤 다음을 묻는다.
 
 ```text
 동기화 시키고 싶은 메일함 Index(예: 1,2,3,5):
 ```
 
-Enter one or more indexes separated by commas. The command prints YAML snippets that can be copied under `outlook.folders`.
+쉼표로 구분한 index를 하나 이상 입력한다. command는 `outlook.folders` 아래에 복사할 수 있는 YAML snippet을 출력한다.
 
 Example output shape:
 
@@ -57,16 +57,16 @@ Example output shape:
       save_attachments: true
 ```
 
-Review the generated `name`, `target_folder`, and `tags` before running import.
+Import를 실행하기 전에 생성된 `name`, `target_folder`, `tags`를 검토한다.
 
-## Select Outlook Folders
+## Outlook Folder 선택
 
-Use the Outlook folder tree from left to right:
+Outlook folder tree를 왼쪽에서 오른쪽 순서로 확인한다.
 
-1. Open classic Outlook desktop.
-2. Find the top-level mailbox name in the left folder tree.
-3. Find or create an import-only folder, for example `_KB\ProjectA`.
-4. Build `outlook_path` from mailbox root to target folder.
+1. Classic Outlook desktop을 연다.
+2. 왼쪽 folder tree에서 top-level mailbox name을 찾는다.
+3. `_KB\ProjectA` 같은 import-only folder를 찾거나 만든다.
+4. mailbox root부터 target folder까지 `outlook_path`를 만든다.
 
 Example:
 
@@ -80,7 +80,7 @@ Shared mailbox example:
 outlook_path: "\\Shared Mailbox Name\\Inbox\\Reports"
 ```
 
-Recommended pattern:
+권장 pattern:
 
 ```yaml
 outlook:
@@ -95,11 +95,11 @@ outlook:
       save_attachments: true
 ```
 
-Do not point import at the entire Inbox unless that is intentional. The safer workflow is to move selected messages into `_KB` folders.
+의도한 경우가 아니라면 전체 Inbox를 import 대상으로 지정하지 않는다. 더 안전한 workflow는 선택한 message를 `_KB` folder로 옮기는 것이다.
 
-## Validate and Preview
+## 검증 및 Preview
 
-Run these before the first import:
+첫 import 전에 다음을 실행한다.
 
 ```powershell
 kb-win-sync validate-config --config "$env:USERPROFILE\kb-win-sync\config.yaml"
@@ -107,72 +107,72 @@ kb-win-sync doctor --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml" --dry-run
 ```
 
-Expected dry-run behavior:
+예상 dry-run 동작:
 
-- It scans only configured folders.
-- It prints messages that would be imported.
-- It does not write Markdown, state, `.msg`, or attachment files.
+- 설정된 folder만 scan한다.
+- import될 message를 출력한다.
+- Markdown, state, `.msg`, 첨부파일을 쓰지 않는다.
 
-## Run Manual Import
+## 수동 Import 실행
 
-After dry-run looks correct:
+dry-run 결과가 올바르면 다음을 실행한다.
 
 ```powershell
 kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
 
-Check:
+확인할 내용:
 
-- Markdown files appear under the configured `vault_path`.
-- Re-running import skips duplicate messages.
-- No unexpected Outlook folders are scanned.
+- Markdown file이 설정된 `vault_path` 아래에 나타난다.
+- import를 다시 실행하면 duplicate message가 skip된다.
+- 예상하지 않은 Outlook folder가 scan되지 않는다.
 
-## Register Task Scheduler
+## Task Scheduler 등록
 
-Register the schedule only after manual import works.
+수동 import가 동작한 뒤에만 schedule을 등록한다.
 
-### GUI Steps
+### GUI 단계
 
-1. Open Task Scheduler.
-2. Select "Create Task", not "Create Basic Task".
+1. Task Scheduler를 연다.
+2. "Create Basic Task"가 아니라 "Create Task"를 선택한다.
 3. General tab:
    - Name: `kb-win-sync`
-   - Select "Run only when user is logged on" if Outlook COM cannot run in a background session.
+   - Outlook COM이 background session에서 실행되지 않으면 "Run only when user is logged on"을 선택한다.
 4. Triggers tab:
    - New trigger
-   - Begin the task: On a schedule
+   - Begin the task: On a schedule 선택
    - Daily
-   - Choose a time when Outlook is normally available.
+   - Outlook을 정상적으로 사용할 수 있는 시간을 선택한다.
 5. Actions tab:
    - New action
    - Action: Start a program
-   - Program/script: path to `examples\run-kb-win-sync.bat` or your local wrapper `.bat`
-   - Start in: repository directory or installed package working directory
+   - Program/script: `examples\run-kb-win-sync.bat` 또는 local wrapper `.bat`의 path
+   - Start in: repository directory 또는 installed package working directory
 6. Conditions tab:
-   - Avoid settings that prevent the task from running on battery if that matters.
+   - 필요한 경우 battery 상태 때문에 task 실행을 막는 설정은 피한다.
 7. Settings tab:
-   - Allow task to be run on demand.
-   - Stop the task if it runs longer than a reasonable import window.
-8. Run the task manually once and inspect Task Scheduler history and `log_path`.
+   - task를 on demand로 실행할 수 있게 한다.
+   - 합리적인 import window보다 오래 실행되면 task를 중지한다.
+8. task를 수동으로 한 번 실행하고 Task Scheduler history와 `log_path`를 확인한다.
 
-### schtasks Example
+### schtasks 예시
 
-Adjust paths first:
+먼저 path를 조정한다.
 
 ```powershell
 schtasks /Create /TN "kb-win-sync" /SC DAILY /ST 09:00 /TR "%USERPROFILE%\kb-win-sync\run-kb-win-sync.bat"
 ```
 
-Delete later:
+나중에 삭제한다.
 
 ```powershell
 schtasks /Delete /TN "kb-win-sync"
 ```
 
-## Troubleshooting
+## 문제 해결
 
-- Folder not found: rebuild `outlook_path` from the Outlook folder tree.
-- Outlook unavailable: use classic Outlook and run while logged in.
-- Too many messages in dry-run: narrow `outlook.folders` to `_KB` subfolders.
-- Duplicate messages skipped: expected after successful import; use `--force` only intentionally.
-- SFTP failure: keep `sync.enabled: false` until SSH preflight succeeds.
+- Folder not found: Outlook folder tree에서 `outlook_path`를 다시 만든다.
+- Outlook unavailable: classic Outlook을 사용하고 로그인된 상태에서 실행한다.
+- Too many messages in dry-run: `outlook.folders`를 `_KB` subfolder로 좁힌다.
+- Duplicate messages skipped: 성공적인 import 이후에는 정상이다. 의도한 경우에만 `--force`를 사용한다.
+- SFTP failure: SSH preflight가 성공할 때까지 `sync.enabled: false`를 유지한다.

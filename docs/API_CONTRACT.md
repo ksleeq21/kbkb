@@ -1,35 +1,35 @@
-# KB API and Skill Contract
+# KB API 및 Skill 계약
 
-This document fixes the contract between `cline_skill_obsidian_kb` and `kb_api`.
+이 문서는 `cline_skill_obsidian_kb`와 `kb_api` 사이의 contract를 고정한다.
 
-Contract version: `v1`
+계약 버전: `v1`
 
-Compatibility rule:
+호환성 규칙:
 
-- Additive response fields are allowed.
-- Existing required fields must not be removed or renamed within `v1`.
-- Endpoint paths, methods, auth header format, and top-level response containers are stable for `v1`.
-- Breaking changes require a new contract version and coordinated skill script updates.
+- 응답 field 추가는 허용된다.
+- 기존 required field는 `v1` 안에서 제거하거나 이름을 바꾸면 안 된다.
+- Endpoint path, method, auth header format, top-level response container는 `v1`에서 stable이다.
+- Breaking change에는 새 contract version과 coordinated skill script update가 필요하다.
 
-## Environment
+## 환경
 
-Skill scripts read:
+Skill script는 다음 값을 읽는다.
 
-- `KB_API_BASE_URL`: API base URL. Default: `http://127.0.0.1:8765`.
-- `KB_API_TOKEN`: bearer token for read-only endpoints.
-- `KB_API_LIMIT`: optional default limit for search/context scripts.
+- `KB_API_BASE_URL`: API base URL. 기본값: `http://127.0.0.1:8765`.
+- `KB_API_TOKEN`: read-only endpoint용 bearer token.
+- `KB_API_LIMIT`: search/context script의 선택적 default limit.
 
-Skill scripts do not read `KB_API_ADMIN_TOKEN` and must not call admin endpoints.
+Skill script는 `KB_API_ADMIN_TOKEN`을 읽지 않으며 admin endpoint를 호출하면 안 된다.
 
-## Authentication
+## 인증
 
-All skill endpoints require:
+모든 skill endpoint에는 다음 header가 필요하다.
 
 ```http
 Authorization: Bearer <KB_API_TOKEN>
 ```
 
-Unauthorized response:
+인증 실패 응답:
 
 ```json
 {
@@ -40,17 +40,17 @@ Unauthorized response:
 }
 ```
 
-## Health
+## 상태 확인
 
-Skill scripts do not need health checks, but setup and diagnostics use them.
+Skill script에는 health check가 필요 없지만 setup과 diagnostic에서 사용한다.
 
-Request:
+요청:
 
 ```http
 GET /health
 ```
 
-Response:
+응답:
 
 ```json
 {
@@ -59,13 +59,13 @@ Response:
 }
 ```
 
-Deep request:
+심층 요청:
 
 ```http
 GET /health?deep=true
 ```
 
-Response:
+응답:
 
 ```json
 {
@@ -79,35 +79,35 @@ Response:
 }
 ```
 
-## Search
+## 검색
 
-Used by:
+사용 예:
 
 ```bash
 python3 cline_skill_obsidian_kb/scripts/kb_search.py "query"
 ```
 
-Request:
+요청:
 
 ```http
 GET /search?q=<query>&limit=10&type=email&tag=project/project-a&sender=Kim&folder=ProjectA&after=2026-01-01&before=2026-12-31
 ```
 
-Required query parameters:
+필수 query parameter:
 
-- `q`: non-empty FTS query.
+- `q`: 비어 있지 않은 FTS query.
 
-Optional query parameters:
+선택 query parameter:
 
-- `limit`: integer, clamped by the server.
-- `type`: exact note type filter.
-- `tag`: exact tag filter; a note matches when its `tags` array contains the value.
-- `sender`: exact sender filter.
-- `folder`: exact folder filter.
-- `after`: inclusive ISO date or datetime lower bound for `received`.
-- `before`: inclusive ISO date or datetime upper bound for `received`.
+- `limit`: integer이며 server가 clamp한다.
+- `type`: 정확히 일치하는 note type filter.
+- `tag`: 정확히 일치하는 tag filter. note의 `tags` array가 해당 값을 포함하면 match된다.
+- `sender`: 정확히 일치하는 sender filter.
+- `folder`: 정확히 일치하는 folder filter.
+- `after`: `received`에 대한 inclusive ISO date 또는 datetime lower bound.
+- `before`: `received`에 대한 inclusive ISO date 또는 datetime upper bound.
 
-Response:
+응답:
 
 ```json
 {
@@ -132,7 +132,7 @@ Response:
 }
 ```
 
-Required fields per result:
+Result별 필수 field:
 
 - `path`
 - `title`
@@ -147,27 +147,27 @@ Required fields per result:
 - `score`
 - `excerpt`
 
-## Read By Path
+## 경로로 읽기
 
-Used by:
+사용 예:
 
 ```bash
 python3 cline_skill_obsidian_kb/scripts/kb_read.py "20_Emails/ProjectA/example.md"
 ```
 
-Request:
+요청:
 
 ```http
 GET /notes/by-path?path=<vault-relative-path>
 ```
 
-Path rules:
+Path rule:
 
-- Must be vault-relative.
-- Must not be absolute.
-- Must not contain `..`.
+- vault-relative여야 한다.
+- absolute이면 안 된다.
+- `..`를 포함하면 안 된다.
 
-Response:
+응답:
 
 ```json
 {
@@ -181,7 +181,7 @@ Response:
 }
 ```
 
-Required fields:
+Required field:
 
 - `path`
 - `title`
@@ -189,15 +189,15 @@ Required fields:
 - `metadata`
 - `body`
 
-## Context
+## Context 응답
 
-Used by:
+사용 예:
 
 ```bash
 python3 cline_skill_obsidian_kb/scripts/kb_context.py "question"
 ```
 
-Request:
+요청:
 
 ```http
 POST /context
@@ -219,7 +219,7 @@ Body:
 }
 ```
 
-Response:
+응답:
 
 ```json
 {
@@ -237,7 +237,7 @@ Response:
 }
 ```
 
-Required fields per evidence item:
+Evidence item별 필수 field:
 
 - `path`
 - `title`
@@ -247,9 +247,9 @@ Required fields per evidence item:
 - `excerpt`
 - `why_relevant`
 
-## Error Shape
+## 오류 형식
 
-Error responses use:
+Error response는 다음 형식을 사용한다.
 
 ```json
 {
@@ -261,16 +261,16 @@ Error responses use:
 }
 ```
 
-Required error fields:
+필수 error field:
 
 - `error.code`
 - `error.message`
 
-Optional error fields:
+선택 error field:
 
 - `error.hint`
 
-Known codes:
+알려진 code:
 
 - `unauthorized`
 - `bad_request`
@@ -278,6 +278,6 @@ Known codes:
 - `database_not_indexed`
 - `invalid_query`
 
-Implementation requirement:
+구현 요구사항:
 
-Both the standard-library server and the optional FastAPI deployment must return this same top-level `error` object. Framework-native shapes such as FastAPI's default `{"detail": ...}` are not contract-compatible for v1 endpoints.
+standard-library server와 optional FastAPI deployment는 같은 top-level `error` object를 반환해야 한다. FastAPI default `{"detail": ...}` 같은 framework-native shape은 v1 endpoint contract와 호환되지 않는다.

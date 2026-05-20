@@ -1,4 +1,4 @@
-# Obsidian Email Knowledge Graph Development Plan
+# Obsidian Email Knowledge Graph 개발 계획
 
 이 문서는 Outlook 이메일을 Obsidian Markdown vault로 변환하고, 그 Markdown을 SQLite FTS와 graph index로 옮겨 지식 검색을 만드는 개발 계획이다.
 
@@ -75,10 +75,10 @@ DB는 source of truth가 아니라 조회 성능을 위한 재생성 가능한 i
 
 Obsidian의 기본 기능은 이미 graph의 재료다.
 
-- Markdown file: note node
+- Markdown file: note node로 취급
 - Folder path: note의 위치와 분류
-- YAML frontmatter: note metadata
-- Tags: topic/project/category node
+- YAML frontmatter: note metadata로 취급
+- Tags: topic/project/category node로 취급
 - `[[wiki links]]`: note-to-note edge
 - Backlinks: wiki link의 역방향 edge
 - Attachments: file node
@@ -398,7 +398,7 @@ USING fts5(
 
 MVP 품질 완료 기준은 FTS5 trigram 우선 적용과 명시적 fallback이다. 검색 품질이 부족할 때 형태소 분석기를 추가한다.
 
-## Graph-Boosted Search
+## Graph-Boosted Search 전략
 
 검색 결과는 FTS 점수만으로 정렬하지 않는다. graph와 metadata 신호를 더한다.
 
@@ -450,7 +450,7 @@ MVP 최소 범위:
 
 첨부파일 내부 텍스트까지 검색하려면 attachment도 별도 document node로 취급하는 것이 좋다.
 
-## Recommended SQLite Schema
+## 권장 SQLite Schema
 
 ### notes
 
@@ -661,7 +661,7 @@ CREATE TABLE note_conversations (
 12. `conversation_id`가 있으면 `conversations`, `note_conversations`에 저장한다.
 13. 모든 note를 읽은 뒤 `links.target_note_id`를 가능한 범위에서 resolve한다.
 
-## Link Resolution
+## Link 해석
 
 Obsidian `[[wiki links]]`는 반드시 정확한 파일 경로를 담고 있지 않을 수 있다.
 
@@ -684,7 +684,7 @@ Obsidian `[[wiki links]]`는 반드시 정확한 파일 경로를 담고 있지 
 
 ## API
 
-### Search
+### Search API
 
 ```http
 GET /search?q=개발망%20회의록
@@ -708,19 +708,19 @@ GET /search?q=개발망%20회의록
 }
 ```
 
-### Backlinks
+### Backlinks API
 
 ```http
 GET /graph/backlinks?path=10_Notes/개발망-운영-가이드.md
 ```
 
-### Neighbors
+### Neighbors API
 
 ```http
 GET /graph/neighbors?path=20_Emails/DevNet/example.md&depth=1
 ```
 
-### Email Graph
+### Email Graph API
 
 ```http
 GET /graph/email?path=20_Emails/DevNet/example.md
@@ -742,7 +742,7 @@ GET /graph/email?path=20_Emails/DevNet/example.md
 }
 ```
 
-### Tags and Folders
+### Tags/Folders API
 
 ```http
 GET /tags
@@ -778,7 +778,7 @@ GET /folders
 
 ## 개발 단계
 
-### Phase 0: Email to Markdown
+### Phase 0: Email to Markdown 변환
 
 - Outlook email 원본에서 metadata/body/attachments를 추출한다.
 - deterministic Markdown path를 만든다.
@@ -786,7 +786,7 @@ GET /folders
 - 원본 `.msg`와 첨부파일을 vault 내부 attachment path에 저장한다.
 - Windows에서 생성한 raw Markdown을 Linux raw vault로 동기화한다.
 
-### Phase 1: Linux Cline CLI Enrichment
+### Phase 1: Linux Cline CLI Enrichment 실행
 
 - Raw Markdown을 입력으로 Cline CLI를 실행해 tag, summary, 보조 metadata를 생성한다.
 - Cline 출력은 JSON schema로 제한한다.
@@ -814,13 +814,13 @@ GET /folders
 - person/conversation/email-neighbors API를 만든다.
 - 같은 sender/recipient/conversation 기반 related results를 제공한다.
 
-### Phase 5: Attachment Text Search
+### Phase 5: Attachment Text Search 추가
 
 - `.docx`, `.pdf`, `.xlsx` 내부 텍스트를 추출한다.
 - `attachment_chunks`와 attachment FTS를 만든다.
 - attachment hit를 parent email 점수에 합산한다.
 
-### Phase 6: Optional Semantic Layer
+### Phase 6: Optional Semantic Layer 추가
 
 필요하면 MVP 이후 추가한다.
 

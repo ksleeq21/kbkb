@@ -1,10 +1,10 @@
-# Usability 80 Plan
+# 사용성 80점 계획
 
 이 문서는 현재 MVP를 "기능 범위는 충분하지만 완성도는 60점"인 상태로 보고, 시니어 엔지니어 리뷰에서 "그럭저럭 쓸만하다"가 아니라 "MVP로는 충분히 탄탄하다"는 평가를 받을 수 있도록 80점까지 끌어올리는 실행 계획이다.
 
 범위는 PRD의 로컬 우선, GitHub/GitHub Enterprise 저장 금지, 외부 SaaS 금지, read-only API 원칙을 유지한다. 기능을 크게 넓히기보다 사용자가 설치, 설정, 첫 성공, 문제 진단, 반복 운영을 덜 헷갈리게 만드는 데 집중한다.
 
-## Target Score
+## 목표 점수
 
 현재 추정 점수: 60/100
 
@@ -19,7 +19,7 @@
 - 운영자는 로그와 상태 파일을 보고 import/sync/index 상태를 판단할 수 있다.
 - Cline/Codex skill 사용자는 검색 결과의 출처와 신뢰도를 쉽게 인용할 수 있다.
 
-## Review Feedback Summary
+## Review 피드백 요약
 
 리뷰 피드백을 사용성 관점으로 재정리하면 다음과 같다.
 
@@ -30,7 +30,7 @@
 - API와 skill은 동작하지만, 검색 결과 품질과 출처 표시가 사용자 친화적이지 않다.
 - 실제 Windows/Outlook 환경에서 수동 검증해야 하는 항목과 로컬에서 자동 검증된 항목의 경계가 문서에서 더 선명해야 한다.
 
-## Scoring Rubric
+## 채점 기준
 
 | Area | Current | Target | 판단 기준 |
 | --- | ---: | ---: | --- |
@@ -43,7 +43,7 @@
 | 테스트/회귀 | 70 | 85 | CLI, 보안, path traversal, unauthorized, fixture e2e 테스트가 자동화 |
 | 문서 일치성 | 65 | 85 | 문서의 모든 명령이 실제 코드와 맞고 검증 범위가 명시됨 |
 
-## Priority 0: Preserve MVP Boundaries
+## 우선순위 0: MVP Boundary 유지
 
 완성도 개선 중에도 아래는 변경하지 않는다.
 
@@ -52,7 +52,7 @@
 - 실제 이메일, 실제 첨부파일, 실제 vault 데이터는 저장소에 넣지 않는다.
 - Windows Outlook 자동화는 classic Outlook desktop COM 기반 MVP로 유지한다.
 
-## Priority 1: First-Run Experience
+## 우선순위 1: First-Run Experience
 
 목표: 사용자가 코드를 받은 뒤 "설치가 됐는지"와 "API 검색이 되는지"를 가장 짧은 경로로 확인한다.
 
@@ -70,7 +70,7 @@
 - smoke test 출력에 DB path, indexed notes/chunks, sample query, sample source path가 포함된다.
 - 실패 메시지에 Python 버전, config path, vault path 존재 여부가 포함된다.
 
-## Priority 2: Config Validation and Guided Errors
+## 우선순위 2: Config Validation과 Guided Error
 
 목표: 설정 오류를 실제 import나 serve 실행 전에 잡는다.
 
@@ -97,7 +97,7 @@
 - token 미설정은 serve 전 단계에서 명확한 경고로 표시된다.
 - `validate-config`는 이메일 본문, token 값, SSH key 내용을 출력하지 않는다.
 
-## Priority 3: Import Dry-Run UX
+## 우선순위 3: Import Dry-Run UX 개선
 
 목표: Outlook import 전에 사용자가 무엇이 가져와질지, 무엇이 skip될지 이해한다.
 
@@ -115,7 +115,7 @@
 - `--dry-run`은 vault, state, attachment, `.msg` 파일을 쓰지 않는다.
 - import 실패가 전체 실행을 중단하지 않고 summary에 누적된다.
 
-## Priority 4: Attachment and `.msg` Completeness
+## 우선순위 4: Attachment와 `.msg` 완성도
 
 목표: PRD상 중요하지만 현재 UX가 약한 원본 `.msg`와 첨부파일 저장 흐름을 완성도 있게 만든다.
 
@@ -133,7 +133,7 @@
 - `save_attachments: true`일 때 첨부파일이 deterministic path로 저장된다.
 - Markdown frontmatter와 body link가 실제 저장 경로와 일치한다.
 
-## Priority 5: API Response and Search UX
+## 우선순위 5: API Response와 Search UX
 
 목표: AI 도구와 사람이 검색 결과를 더 쉽게 판단하게 한다.
 
@@ -151,7 +151,7 @@
 - 검색 결과만 보고도 출처 path, 제목, sender, received, type을 판단할 수 있다.
 - 같은 fixture/query 결과가 반복 가능하다.
 
-## Priority 6: Skill Script UX
+## 우선순위 6: Skill Script UX 개선
 
 목표: Cline/Codex가 검색 결과를 그대로 인용 가능한 evidence로 사용한다.
 
@@ -168,7 +168,7 @@
 - `--json` 출력은 다른 자동화에서 파싱 가능하다.
 - evidence 출력에 path, title, type, sender, received, excerpt가 항상 포함된다.
 
-## Priority 7: Observability and Status
+## 우선순위 7: Observability와 Status
 
 목표: 운영자가 현재 상태를 한눈에 확인한다.
 
@@ -186,7 +186,7 @@
   - vault path 존재 여부
   - database path 존재 여부
   - notes/chunks count
-  - newest indexed received date
+  - 가장 최근 indexed received date
   - token env var 존재 여부만 표시
 - 로그 포맷에 run_id를 추가해 한 번의 실행을 추적 가능하게 한다.
 
@@ -196,7 +196,7 @@
 - 상태 파일이 손상된 경우 status가 명확히 실패하고 복구 방법을 안내한다.
 - 운영 문서가 status 명령을 troubleshooting 첫 단계로 사용한다.
 
-## Priority 8: Test Coverage for Usability Regressions
+## 우선순위 8: Usability Regression Test Coverage 확대
 
 목표: 사용성 개선이 회귀하지 않도록 CLI와 오류 메시지를 테스트한다.
 
@@ -214,7 +214,7 @@
 - 로컬 HTTP bind가 필요한 테스트는 명확히 분리되거나 샌드박스 제약을 문서화한다.
 - fixture는 synthetic 데이터만 사용한다.
 
-## Execution Order
+## 실행 순서
 
 1. First-run smoke test와 README quickstart를 먼저 만든다.
 2. Config validation을 추가해 setup 실패를 앞에서 잡는다.
@@ -224,7 +224,7 @@
 6. 운영 문서와 troubleshooting을 새 CLI 기준으로 갱신한다.
 7. usability regression tests를 전체 suite에 포함한다.
 
-## Definition of Done for 80점
+## 80점 완료 기준
 
 - `README.md`의 quickstart 명령이 그대로 성공한다.
 - `validate-config`, `status`, `smoke-test`가 Windows/API 각각의 첫 진단 경로가 된다.
@@ -235,7 +235,7 @@
 - 운영 문서가 실제 명령과 실제 오류 코드를 기준으로 업데이트된다.
 - 모든 자동 테스트가 synthetic fixture만으로 통과한다.
 
-## Out of Scope for 80점
+## 80점 범위 제외
 
 - embedding 기반 RAG
 - Outlook add-in
@@ -246,41 +246,41 @@
 - 외부 SaaS 연동
 - vault content Git 저장
 
-## Suggested Milestones
+## 제안 Milestone
 
-## Implementation Progress
+## 구현 진행상황
 
 Started:
 
-- `kb_api smoke-test`, `validate-config`, and `status` commands are implemented.
-- `kb_win_sync validate-config` and `status` commands are implemented without requiring Outlook.
-- `/health?deep=true` returns database/index status.
-- `/search` results now expose sender, received, folder, tags, chunk index, and matched fields at top level.
-- API error responses now use structured JSON for unauthorized, bad request, not found, database missing, and invalid query cases.
-- Skill scripts now check `KB_API_TOKEN`, report API errors without printing token values, and `kb_search.py` supports `--json`, `--limit`, `--type`, `--tag`, `--sender`, `--folder`, `--after`, and `--before`.
-- CLI usability regression tests cover smoke test, validation, status, and missing-token behavior.
+- `kb_api smoke-test`, `validate-config`, `status` command가 구현되어 있다.
+- `kb_win_sync validate-config`와 `status` command는 Outlook 없이 실행되도록 구현되어 있다.
+- `/health?deep=true`는 database/index status를 반환한다.
+- `/search` result는 sender, received, folder, tags, chunk index, matched field를 top level에 노출한다.
+- API error response는 unauthorized, bad request, not found, database missing, invalid query case에 structured JSON을 사용한다.
+- Skill script는 `KB_API_TOKEN`을 확인하고 token value를 출력하지 않은 채 API error를 보고하며, `kb_search.py`는 `--json`, `--limit`, `--type`, `--tag`, `--sender`, `--folder`, `--after`, `--before`를 지원한다.
+- CLI usability regression test는 smoke test, validation, status, missing-token behavior를 다룬다.
 
-Completed in current implementation:
+현재 implementation에서 완료됨:
 
-- Editable install exposes concise `kb-api` and `kb-win-sync` console commands while preserving `python -m` fallback compatibility.
-- `init-config`, `smoke-test`, `reindex`, and Windows import/dry-run success output now include explicit `next:` guidance.
-- README, setup, workflow, operations, troubleshooting, and Windows setup docs now use the concise first-run commands.
-- Skill script HTTP error formatting is shared by `kb_search.py` and `kb_context.py`, reducing duplicated parsing logic.
-- CLI usability tests assert the console script declarations and guided `init-config` output.
-- Full Outlook attachment and `.msg` save hooks with fake adapter tests.
-- Manifest-backed incremental SFTP sync so unchanged files are not uploaded every run.
-- Broader search filters: tag, after, and before, wired through `/search`, `/context`, and skill scripts.
-- Search quality fallback reporting for FTS5 trigram support through `status`, `/health?deep=true`, and DB metadata.
-- FastAPI optional deployment matches the stdlib server's structured error shape for explicit HTTP errors.
+- Editable install은 `python -m` fallback compatibility를 유지하면서 간결한 `kb-api`, `kb-win-sync` console command를 노출한다.
+- `init-config`, `smoke-test`, `reindex`, Windows import/dry-run success output은 명시적인 `next:` guidance를 포함한다.
+- README, setup, workflow, operations, troubleshooting, Windows setup doc은 간결한 first-run command를 사용한다.
+- Skill script HTTP error formatting은 `kb_search.py`와 `kb_context.py`가 공유해 duplicated parsing logic을 줄인다.
+- CLI usability test는 console script declaration과 guided `init-config` output을 assert한다.
+- fake adapter test를 포함한 full Outlook attachment 및 `.msg` save hook.
+- unchanged file을 매 run마다 upload하지 않도록 manifest-backed incremental SFTP sync.
+- 더 넓은 search filter: tag, after, before를 `/search`, `/context`, skill script에 연결.
+- `status`, `/health?deep=true`, DB metadata를 통한 FTS5 trigram support fallback reporting.
+- FastAPI optional deployment는 explicit HTTP error에서 stdlib server의 structured error shape과 일치한다.
 
 Remaining:
 
-- Richer Windows import summary after actual Outlook integration testing.
-- Highlight-friendly snippets around matched terms.
-- Run-id logging across Windows import/sync.
-- Optional JSON output for status commands if automation consumers need it.
+- 실제 Outlook integration testing 이후 더 풍부한 Windows import summary.
+- matched term 주변의 highlight-friendly snippet.
+- Windows import/sync 전반의 run-id logging.
+- automation consumer가 필요로 하면 status command용 optional JSON output.
 
-### Milestone A: Setup Confidence
+### Milestone A: Setup 신뢰도
 
 예상 효과: 60점에서 68점
 
@@ -289,7 +289,7 @@ Remaining:
 - README quickstart
 - config 오류 테스트
 
-### Milestone B: Runtime Confidence
+### Milestone B: Runtime 신뢰도
 
 예상 효과: 68점에서 75점
 
@@ -297,16 +297,16 @@ Remaining:
 - dry-run/import summary
 - API deep health
 - DB missing/empty query 오류 개선
-- `.msg`/attachment artifact save summary - implemented
-- incremental sync manifest and retry-safe manifest writes - implemented
+- `.msg`/attachment artifact save summary - 구현됨
+- incremental sync manifest와 retry-safe manifest write - 구현됨
 
-### Milestone C: AI Consumer Polish
+### Milestone C: AI Consumer Polish 개선
 
 예상 효과: 75점에서 80점
 
 - skill script 옵션/JSON 출력
 - context evidence 출력 개선
 - search metadata 확장
-- tag/date filters - implemented
-- trigram support detection and fallback reporting - implemented
+- tag/date filter - 구현됨
+- trigram support detection과 fallback reporting - 구현됨
 - 운영 문서와 regression tests 정리

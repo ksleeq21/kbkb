@@ -1,21 +1,21 @@
-# Operations Guide
+# 운영 가이드
 
-For first-time setup, token generation, service installation, upgrade, and uninstall steps, see `docs/SETUP.md`.
-For the full install-to-search workflow, see `docs/END_TO_END_WORKFLOW.md`.
+첫 설정, token 생성, service 설치, upgrade, uninstall 절차는 `docs/SETUP.md`를 참고한다.
+설치부터 검색까지의 전체 workflow는 `docs/END_TO_END_WORKFLOW.md`를 참고한다.
 
-For first-run UX gaps and planned improvements, see `docs/FIRST_RUN_UX_REVIEW.md`.
-For Windows Outlook folder selection and Task Scheduler details, see `docs/WINDOWS_OUTLOOK_SETUP.md`.
+first-run UX gap과 계획된 개선사항은 `docs/FIRST_RUN_UX_REVIEW.md`를 참고한다.
+Windows Outlook folder 선택과 Task Scheduler 세부사항은 `docs/WINDOWS_OUTLOOK_SETUP.md`를 참고한다.
 
-## Windows Daily Import
+## Windows 일일 Import
 
-1. Put config at `%USERPROFILE%\kb-win-sync\config.yaml`.
-2. If you need to discover Outlook folder paths, run:
+1. config를 `%USERPROFILE%\kb-win-sync\config.yaml`에 둔다.
+2. Outlook folder path를 찾아야 하면 다음을 실행한다.
 
 ```powershell
 kb-win-sync list-mailboxes
 ```
 
-3. Validate and inspect status with:
+3. 다음 명령으로 config를 검증하고 status를 확인한다.
 
 ```powershell
 kb-win-sync validate-config --config "$env:USERPROFILE\kb-win-sync\config.yaml"
@@ -23,23 +23,23 @@ kb-win-sync doctor --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 kb-win-sync status --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
 
-4. Preview with:
+4. 다음 명령으로 미리 확인한다.
 
 ```powershell
 kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml" --dry-run
 ```
 
-5. Run:
+5. 실행한다.
 
 ```powershell
 kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
 
-6. In Task Scheduler, run `examples/run-kb-win-sync.bat` daily. If Outlook COM cannot start in a background session, select "Run only when user is logged on".
+6. Task Scheduler에서 `examples/run-kb-win-sync.bat`를 매일 실행한다. Outlook COM이 background session에서 시작되지 않으면 "Run only when user is logged on"을 선택한다.
 
-## Linux Service
+## Linux Service 운영
 
-Copy `examples/kb-api.service` to `~/.config/systemd/user/kb-api.service` or `/etc/systemd/system/kb-api.service`, then edit paths and tokens.
+`examples/kb-api.service`를 `~/.config/systemd/user/kb-api.service` 또는 `/etc/systemd/system/kb-api.service`로 복사한 뒤 path와 token을 수정한다.
 
 ```bash
 systemctl --user daemon-reload
@@ -50,7 +50,7 @@ journalctl --user -u kb-api.service -f
 
 ## Reindex
 
-Run reindex after the Linux Cline CLI enrichment step has generated the enriched Markdown vault. The API config `vault_path` should point at the enriched vault, not the raw Windows sync directory.
+Linux Cline CLI enrichment 단계가 enriched Markdown vault를 만든 뒤 reindex를 실행한다. API config의 `vault_path`는 raw Windows sync directory가 아니라 enriched vault를 가리켜야 한다.
 
 ```bash
 kb-api validate-config --config /path/to/linux-config.yaml
@@ -60,7 +60,7 @@ kb-api reindex --config /path/to/linux-config.yaml
 kb-api status --config /path/to/linux-config.yaml
 ```
 
-Or through the admin API:
+또는 admin API를 사용한다.
 
 ```bash
 curl -X POST http://127.0.0.1:8765/admin/reindex \
@@ -69,15 +69,15 @@ curl -X POST http://127.0.0.1:8765/admin/reindex \
   -d '{}'
 ```
 
-## Troubleshooting
+## 문제 해결
 
-For a fuller symptom matrix, see `docs/TROUBLESHOOTING.md`.
+더 자세한 증상 매트릭스는 `docs/TROUBLESHOOTING.md`를 참고한다.
 
-- First command: run `kb-win-sync status --config <path>` on Windows or `kb-api status --config <path>` on Linux.
-- First local API proof: run `KB_API_TOKEN=test-token KB_API_ADMIN_TOKEN=admin-token kb-api smoke-test --config examples/linux-config.fixture.yaml`.
-- Outlook unavailable: install `pywin32`, use classic Outlook desktop, and run in an interactive Windows session.
-- Folder missing: verify the full Outlook folder path in the config and keep only whitelisted folders.
-- SFTP failure: check host, username, key path, remote directory permissions, and that `sync.enabled` is intentional.
-- Vault path missing: create the local vault directory and keep it outside this source repository.
-- Token error: confirm `KB_API_TOKEN` or `KB_API_ADMIN_TOKEN` is set in the same shell or service environment.
-- Path traversal rejected: use vault-relative paths such as `20_Emails/ProjectA/example.md`, not absolute paths or `../`.
+- 첫 명령: Windows에서는 `kb-win-sync status --config <path>`, Linux에서는 `kb-api status --config <path>`를 실행한다.
+- 첫 local API proof: `KB_API_TOKEN=test-token KB_API_ADMIN_TOKEN=admin-token kb-api smoke-test --config examples/linux-config.fixture.yaml`를 실행한다.
+- Outlook unavailable: `pywin32`를 설치하고 classic Outlook desktop을 사용하며 interactive Windows session에서 실행한다.
+- Folder missing: config의 전체 Outlook folder path를 확인하고 whitelisted folder만 유지한다.
+- SFTP failure: host, username, key path, remote directory permission, `sync.enabled`가 의도된 값인지 확인한다.
+- Vault path missing: local vault directory를 만들고 이 source repository 밖에 둔다.
+- Token error: `KB_API_TOKEN` 또는 `KB_API_ADMIN_TOKEN`이 같은 shell 또는 service environment에 설정되어 있는지 확인한다.
+- Path traversal rejected: absolute path나 `../` 대신 `20_Emails/ProjectA/example.md` 같은 vault-relative path를 사용한다.

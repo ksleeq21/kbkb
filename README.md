@@ -1,30 +1,30 @@
 # kbkb
 
-Local-first Outlook-to-Obsidian knowledge base sync and read-only search API.
+Local-first Outlook-to-Obsidian knowledge base sync와 read-only search API.
 
-This repository is for source code only. Do not store Obsidian vault contents, exported emails, `.msg` files, attachments, SQLite databases, tokens, SSH keys, or personal notes in the source repository.
+이 저장소는 소스 코드 전용이다. Obsidian vault 내용, exported email, `.msg` file, 첨부파일, SQLite database, token, SSH key, 개인 note를 source repository에 저장하지 않는다.
 
-## Components
+## 구성 요소
 
-- `kb_win_sync`: Windows-side Outlook import, Markdown rendering, state storage, and optional SFTP sync.
-- `kb_api`: Linux-side vault scanner, SQLite FTS indexer, and read-only HTTP API.
-- `cline_skill_obsidian_kb`: Cline/Codex skill instructions and helper scripts.
-- `examples`: synthetic configuration and service templates.
+- `kb_win_sync`: Windows 쪽 Outlook import, Markdown rendering, state storage, 선택적 SFTP sync.
+- `kb_api`: Linux 쪽 vault scanner, SQLite FTS indexer, read-only HTTP API.
+- `cline_skill_obsidian_kb`: Cline/Codex skill instruction과 helper script.
+- `examples`: synthetic configuration과 service template.
 
-## Install Overview
+## 설치 개요
 
-Install the same source repository on both machines, but use different optional dependencies:
+두 machine에 같은 source repository를 설치하되 서로 다른 optional dependency를 사용한다.
 
-- Windows needs `.[windows]` for Outlook COM import and optional SFTP sync.
-- Linux needs the core package for indexing/search. `.[api]` is optional and only needed for FastAPI/uvicorn deployments.
+- Windows는 Outlook COM import와 선택적 SFTP sync를 위해 `.[windows]`가 필요하다.
+- Linux는 indexing/search를 위해 core package가 필요하다. `.[api]`는 선택 사항이며 FastAPI/uvicorn deployment에만 필요하다.
 
-Keep local config, tokens, vault data, `.msg` files, attachments, logs, and SQLite databases outside the source repository.
+Local config, token, vault data, `.msg` file, 첨부파일, log, SQLite database는 source repository 밖에 둔다.
 
-Use [docs/SETUP.md](docs/SETUP.md) when you need the full token, service, upgrade, or uninstall procedure. The README below is the short install path.
+전체 token, service, upgrade, uninstall 절차가 필요하면 [docs/SETUP.md](docs/SETUP.md)를 사용한다. 아래 README는 짧은 설치 경로다.
 
-## Windows Install
+## Windows 설치
 
-Run these commands in PowerShell from the repository root on the Windows machine that has classic Outlook installed:
+Classic Outlook이 설치된 Windows machine의 repository root에서 PowerShell로 다음을 실행한다.
 
 ```powershell
 python -m venv .venv
@@ -33,25 +33,25 @@ python -m pip install -e ".[windows]"
 kb-win-sync --help
 ```
 
-Create the Windows importer config:
+Windows importer config를 만든다.
 
 ```powershell
 New-Item -ItemType Directory -Force "$env:USERPROFILE\kb-win-sync"
 kb-win-sync init-config --output "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
 
-Then discover Outlook folders and edit the generated config:
+그다음 Outlook folder를 찾고 생성된 config를 수정한다.
 
 ```powershell
 kb-win-sync list-mailboxes
 kb-win-sync doctor --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
 
-Use [docs/WINDOWS_OUTLOOK_SETUP.md](docs/WINDOWS_OUTLOOK_SETUP.md) if Outlook folder paths, mailbox selection, or Task Scheduler setup are unclear. It is the Windows-only setup guide.
+Outlook folder path, mailbox selection, Task Scheduler 설정이 불명확하면 [docs/WINDOWS_OUTLOOK_SETUP.md](docs/WINDOWS_OUTLOOK_SETUP.md)를 사용한다. 이 문서는 Windows 전용 setup guide다.
 
-## Linux Install
+## Linux 설치
 
-Run these commands from the repository root on the Linux machine that will host the API and enriched vault:
+API와 enriched vault를 호스팅할 Linux machine의 repository root에서 다음을 실행한다.
 
 ```bash
 python3 -m venv .venv
@@ -60,37 +60,37 @@ python -m pip install -e .
 kb-api --help
 ```
 
-Create the Linux API config outside the repository:
+Linux API config를 repository 밖에 만든다.
 
 ```bash
 mkdir -p ~/.config/kb-api ~/.local/share/kb-api
 kb-api init-config --output ~/.config/kb-api/config.yaml
 ```
 
-Set local-only tokens in the shell that runs the API:
+API를 실행하는 shell에 local-only token을 설정한다.
 
 ```bash
 export KB_API_TOKEN='replace-with-local-token'
 export KB_API_ADMIN_TOKEN='replace-with-admin-token'
 ```
 
-Validate the config:
+config를 검증한다.
 
 ```bash
 kb-api doctor --config ~/.config/kb-api/config.yaml
 ```
 
-If you want to run with FastAPI/uvicorn instead of the default standard-library server, install the optional API dependency:
+기본 standard-library server 대신 FastAPI/uvicorn으로 실행하려면 optional API dependency를 설치한다.
 
 ```bash
 python -m pip install -e ".[api]"
 ```
 
-Use [docs/END_TO_END_WORKFLOW.md](docs/END_TO_END_WORKFLOW.md) when you are connecting Windows import, SFTP raw vault sync, Linux enrichment, reindex, and API search into one complete workflow.
+Windows import, SFTP raw vault sync, Linux enrichment, reindex, API search를 하나의 완전한 workflow로 연결할 때는 [docs/END_TO_END_WORKFLOW.md](docs/END_TO_END_WORKFLOW.md)를 사용한다.
 
-## 5-Minute Local Smoke Test
+## 5분 Local Smoke Test
 
-This verifies the Linux API index/search/read path with synthetic fixture data only.
+synthetic fixture data만 사용해 Linux API index/search/read 경로를 검증한다.
 
 ```bash
 export KB_API_TOKEN='test-token'
@@ -98,7 +98,7 @@ export KB_API_ADMIN_TOKEN='admin-token'
 kb-api smoke-test --config examples/linux-config.fixture.yaml
 ```
 
-Expected output includes:
+예상 output에는 다음이 포함된다.
 
 ```text
 validate-config: ok
@@ -110,13 +110,13 @@ smoke-test: ok
 next: kb-api init-config --output ~/.config/kb-api/config.yaml
 ```
 
-The default MVP HTTP server uses the standard library and exposes the required read-only endpoints. `kb_api.fastapi_app:create_app` is available for deployments that install the optional FastAPI dependency.
+기본 MVP HTTP server는 standard library를 사용하며 필요한 read-only endpoint를 노출한다. Optional FastAPI dependency를 설치한 deployment에서는 `kb_api.fastapi_app:create_app`을 사용할 수 있다.
 
-## Windows Import
+## Windows 가져오기
 
-1. Generate a local config at `%USERPROFILE%\kb-win-sync\config.yaml`.
-2. Edit `vault_path`, whitelisted `outlook.folders`, and optional `sync`.
-3. Run:
+1. `%USERPROFILE%\kb-win-sync\config.yaml`에 local config를 생성한다.
+2. `vault_path`, whitelisted `outlook.folders`, 선택적 `sync`를 수정한다.
+3. 실행한다.
 
 ```powershell
 kb-win-sync init-config --output "$env:USERPROFILE\kb-win-sync\config.yaml"
@@ -127,23 +127,23 @@ kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml" --dry-run
 kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
 
-Only configured Outlook folders are scanned. Unconfigured folders are ignored.
+설정된 Outlook folder만 scan한다. 설정되지 않은 folder는 무시한다.
 
-Daily execution can use Windows Task Scheduler with `examples/run-kb-win-sync.bat`. Configure it to run only when the user is logged in if Outlook COM access requires an interactive desktop.
+Daily execution은 `examples/run-kb-win-sync.bat`와 Windows Task Scheduler를 사용할 수 있다. Outlook COM access가 interactive desktop을 필요로 하면 user가 logged in 상태일 때만 실행하도록 설정한다.
 
-Use [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) if Outlook is unavailable, folders are not found, duplicate imports appear, or SFTP fails.
+Outlook을 사용할 수 없거나 folder를 찾지 못하거나 duplicate import가 보이거나 SFTP가 실패하면 [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)를 사용한다.
 
 ## Linux API
 
-1. Generate a local config outside the repo.
-2. Set local-only tokens:
+1. repo 밖에 local config를 생성한다.
+2. local-only token을 설정한다.
 
 ```bash
 export KB_API_TOKEN='replace-with-local-token'
 export KB_API_ADMIN_TOKEN='replace-with-admin-token'
 ```
 
-3. Enrich raw Markdown on Linux, then rebuild the index from the enriched Markdown vault:
+3. Linux에서 raw Markdown을 enrich한 뒤 enriched Markdown vault에서 index를 다시 만든다.
 
 ```bash
 kb-api init-config --output ~/.config/kb-api/config.yaml
@@ -153,39 +153,39 @@ kb-api reindex --config ~/.config/kb-api/config.yaml
 kb-api status --config ~/.config/kb-api/config.yaml
 ```
 
-4. Start the API:
+4. API를 시작한다.
 
 ```bash
 kb-api serve --config ~/.config/kb-api/config.yaml
 ```
 
-Endpoints:
+Endpoint:
 
-- `GET /health`: unauthenticated health check.
-- `GET /health?deep=true`: unauthenticated DB/index status check.
+- `GET /health`: 인증 없는 health check.
+- `GET /health?deep=true`: 인증 없는 DB/index status check.
 - `GET /search?q=...&limit=10`: bearer-token search.
-- `GET /notes/by-path?path=...`: bearer-token read by vault-relative path.
-- `POST /context`: bearer-token compact evidence bundle.
+- `GET /notes/by-path?path=...`: bearer-token으로 vault-relative path를 읽는다.
+- `POST /context`: bearer-token으로 compact evidence bundle을 반환한다.
 - `POST /admin/reindex`: admin-token reindex.
 
-There are no create, update, or delete endpoints in the MVP.
+MVP에는 create, update, delete endpoint가 없다.
 
-Use [docs/API_CONTRACT.md](docs/API_CONTRACT.md) when changing API responses, skill scripts, auth headers, or endpoint paths. It defines the stable v1 contract.
+API response, skill script, auth header, endpoint path를 변경할 때는 [docs/API_CONTRACT.md](docs/API_CONTRACT.md)를 사용한다. 이 문서는 stable v1 contract를 정의한다.
 
-Use [docs/OPERATIONS.md](docs/OPERATIONS.md) when setting up the service, daily operation, or reindex procedure after installation.
+설치 후 service, daily operation, reindex procedure를 설정할 때는 [docs/OPERATIONS.md](docs/OPERATIONS.md)를 사용한다.
 
-Use [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) if token auth, database status, search results, or service startup do not behave as expected.
+Token auth, database status, search result, service startup이 예상대로 동작하지 않으면 [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)를 사용한다.
 
-## Cline/Codex Skill
+## Cline/Codex Skill 설정
 
-Set:
+설정:
 
 ```bash
 export KB_API_BASE_URL=http://127.0.0.1:8765
 export KB_API_TOKEN='replace-with-local-token'
 ```
 
-Then use:
+사용:
 
 ```bash
 python3 cline_skill_obsidian_kb/scripts/kb_search.py "SSO incident"
@@ -194,17 +194,17 @@ python3 cline_skill_obsidian_kb/scripts/kb_read.py "20_Emails/ProjectA/example.m
 python3 cline_skill_obsidian_kb/scripts/kb_context.py "What did we decide about SSO rollback?"
 ```
 
-## Security Notes
+## 보안 메모
 
-- Keep the API bound to `127.0.0.1` unless you have a reviewed network access plan.
-- Use bearer tokens for every non-health endpoint.
-- Use vault-relative paths only; absolute paths and `..` traversal are rejected.
-- The repository test fixtures are synthetic and must remain synthetic.
+- 검토된 network access plan이 없다면 API는 `127.0.0.1`에 bind한다.
+- health가 아닌 모든 endpoint에 bearer token을 사용한다.
+- vault-relative path만 사용한다. absolute path와 `..` traversal은 거부된다.
+- repository test fixture는 synthetic이며 계속 synthetic이어야 한다.
 
-Use [docs/SECURITY.md](docs/SECURITY.md) when reviewing storage boundaries, token handling, or whether a new sync/storage path is acceptable.
+새 sync/storage path가 허용 가능한지 또는 storage boundary와 token handling을 검토할 때는 [docs/SECURITY.md](docs/SECURITY.md)를 사용한다.
 
-## Improvement Plan
+## 개선 계획
 
-Use [docs/PRD.md](docs/PRD.md) when deciding whether a feature belongs in scope. Use [docs/USABILITY_80_PLAN.md](docs/USABILITY_80_PLAN.md) and [docs/FIRST_RUN_UX_REVIEW.md](docs/FIRST_RUN_UX_REVIEW.md) when improving first-run UX or setup quality.
+기능이 scope에 속하는지 판단할 때는 [docs/PRD.md](docs/PRD.md)를 사용한다. first-run UX 또는 setup quality를 개선할 때는 [docs/USABILITY_80_PLAN.md](docs/USABILITY_80_PLAN.md)와 [docs/FIRST_RUN_UX_REVIEW.md](docs/FIRST_RUN_UX_REVIEW.md)를 사용한다.
 
-Use [docs/OBSIDIAN_GRAPH_DEVELOPMENT.md](docs/OBSIDIAN_GRAPH_DEVELOPMENT.md) only when working on graph search, backlinks, relationship tables, or future graph-boosted ranking.
+Graph search, backlink, relationship table, future graph-boosted ranking 작업을 할 때만 [docs/OBSIDIAN_GRAPH_DEVELOPMENT.md](docs/OBSIDIAN_GRAPH_DEVELOPMENT.md)를 사용한다.

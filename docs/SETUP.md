@@ -1,46 +1,46 @@
-# Setup, Tokens, and Uninstall
+# 설정, Token, Uninstall
 
 이 문서는 설치, 토큰 설정, 서비스 등록, 제거 절차를 한 곳에 모은 운영용 가이드다.
 
 설치부터 검색까지의 전체 사용자 흐름은 `docs/END_TO_END_WORKFLOW.md`를 먼저 참고한다.
 
-## Token Policy
+## Token 정책
 
 다음 데이터는 소스 저장소에 올리면 안 된다.
 
 - Obsidian vault contents
-- imported email Markdown files
-- `.msg` originals
-- attachments
-- SQLite databases
-- logs
-- local config files
-- API tokens
-- SSH private keys
-- `.env` files
+- imported email Markdown file 일체
+- `.msg` original
+- 첨부파일
+- SQLite database
+- log
+- local config file
+- API token
+- SSH private key
+- `.env` file
 
-### KB API Tokens
+### KB API Token 설정
 
-The Linux API uses local bearer tokens:
+Linux API는 local bearer token을 사용한다.
 
-- `KB_API_TOKEN`: normal read-only API token for `/search`, `/notes/by-path`, and `/context`.
-- `KB_API_ADMIN_TOKEN`: admin token for `/admin/reindex`.
+- `KB_API_TOKEN`: `/search`, `/notes/by-path`, `/context`용 일반 read-only API token.
+- `KB_API_ADMIN_TOKEN`: `/admin/reindex`용 admin token.
 
-Generate strong local tokens on Linux:
+Linux에서 강한 local token을 생성한다.
 
 ```bash
 python3 -c 'import secrets; print(secrets.token_urlsafe(32))'
 python3 -c 'import secrets; print(secrets.token_urlsafe(32))'
 ```
 
-Set them for a shell session:
+shell session에 token을 설정한다.
 
 ```bash
 export KB_API_TOKEN='replace-with-generated-token'
 export KB_API_ADMIN_TOKEN='replace-with-different-generated-token'
 ```
 
-For user-level systemd, prefer a private environment file outside the repo:
+user-level systemd에서는 repo 밖의 private environment file을 우선 사용한다.
 
 ```bash
 mkdir -p ~/.config/kb-api
@@ -49,28 +49,28 @@ printf 'KB_API_TOKEN=%s\nKB_API_ADMIN_TOKEN=%s\n' 'replace-with-generated-token'
 chmod 600 ~/.config/kb-api/env
 ```
 
-Then add this to the service file:
+그다음 service file에 다음을 추가한다.
 
 ```ini
 EnvironmentFile=%h/.config/kb-api/env
 ```
 
-Do not commit this environment file.
+이 environment file을 커밋하지 않는다.
 
-### Cline/Codex Skill Token
+### Cline/Codex Skill Token 설정
 
-The skill scripts read:
+skill script는 다음을 읽는다.
 
 ```bash
 export KB_API_BASE_URL=http://127.0.0.1:8765
 export KB_API_TOKEN='replace-with-generated-token'
 ```
 
-They do not need the admin token.
+admin token은 필요하지 않다.
 
-### SFTP/SSH Key
+### SFTP/SSH Key 설정
 
-Windows-to-Linux sync uses SSH/SFTP when enabled. It needs an SSH private key path in local Windows config only:
+Windows-to-Linux sync는 활성화되면 SSH/SFTP를 사용한다. SSH private key path는 local Windows config에만 필요하다.
 
 ```yaml
 sync:
@@ -81,12 +81,11 @@ sync:
   key_path: "C:/Users/you/.ssh/id_rsa"
 ```
 
-Never commit SSH private keys or local config files.
+SSH private key나 local config file을 절대 커밋하지 않는다.
 
-## Install
+## 설치
 
-Install the source tree in editable mode first. This exposes the shorter
-`kb-api` and `kb-win-sync` commands used below.
+먼저 source tree를 editable mode로 설치한다. 이렇게 하면 아래에서 사용하는 짧은 `kb-api`, `kb-win-sync` command가 노출된다.
 
 Linux/macOS:
 
@@ -105,31 +104,30 @@ python -m venv .venv
 python -m pip install -e ".[windows]"
 ```
 
-If editable install is not available, use the legacy module commands instead:
-`python3 -m kb_api` and `python -m kb_win_sync`.
+editable install을 사용할 수 없으면 legacy module command인 `python3 -m kb_api`와 `python -m kb_win_sync`를 대신 사용한다.
 
-## First-Run Path
+## 첫 실행 경로
 
-Use this order for the first successful setup:
+첫 성공 setup은 다음 순서로 진행한다.
 
-1. Install editable commands and run the synthetic smoke test.
-2. Linux: create API config and tokens.
-3. Linux: create or verify the enriched vault path, then start the API after reindex.
-4. Linux: verify `/health`, `/health?deep=true`, and `/search`.
-5. Windows: create Outlook import config.
-6. Windows: run `list-mailboxes`, choose mailbox indexes, and copy the generated snippets into config.
-7. Windows: validate config and run `--dry-run`.
-8. Windows: run import manually once.
-9. Windows: enable Task Scheduler only after manual import works.
-10. Linux: run Cline CLI enrichment from raw Markdown to enriched Markdown.
-11. Linux: reindex the enriched vault.
-12. Cline/Codex: run `kb_search.py` against the API.
+1. editable command를 설치하고 synthetic smoke test를 실행한다.
+2. Linux: API config와 token을 만든다.
+3. Linux: enriched vault path를 만들거나 확인한 뒤 reindex 후 API를 시작한다.
+4. Linux: `/health`, `/health?deep=true`, `/search`를 검증한다.
+5. Windows: Outlook import config를 만든다.
+6. Windows: `list-mailboxes`를 실행하고 mailbox index를 선택한 뒤 생성된 snippet을 config에 복사한다.
+7. Windows: config를 검증하고 `--dry-run`을 실행한다.
+8. Windows: import를 수동으로 한 번 실행한다.
+9. Windows: 수동 import가 동작한 뒤에만 Task Scheduler를 활성화한다.
+10. Linux: raw Markdown에서 enriched Markdown으로 Cline CLI enrichment를 실행한다.
+11. Linux: enriched vault를 reindex한다.
+12. Cline/Codex: API를 대상으로 `kb_search.py`를 실행한다.
 
-See `docs/FIRST_RUN_UX_REVIEW.md` for the full usability review and additional improvement candidates.
+전체 usability review와 추가 improvement candidate는 `docs/FIRST_RUN_UX_REVIEW.md`를 참고한다.
 
 ### Linux API
 
-From the source repository:
+source repository에서:
 
 ```bash
 python -m unittest discover -s tests -v
@@ -138,27 +136,27 @@ export KB_API_ADMIN_TOKEN='admin-token'
 kb-api smoke-test --config examples/linux-config.fixture.yaml
 ```
 
-Create local config outside the repo:
+repo 밖에 local config를 만든다.
 
 ```bash
 mkdir -p ~/.config/kb-api ~/.local/share/kb-api
 kb-api init-config --output ~/.config/kb-api/config.yaml
 ```
 
-Edit:
+수정한다.
 
 ```bash
 vim ~/.config/kb-api/config.yaml
 ```
 
-Validate first:
+먼저 검증한다.
 
 ```bash
 kb-api validate-config --config ~/.config/kb-api/config.yaml
 kb-api doctor --config ~/.config/kb-api/config.yaml
 ```
 
-After Windows has synced raw Markdown to Linux, enrich and index:
+Windows가 raw Markdown을 Linux로 sync한 뒤 enrich하고 index한다.
 
 ```bash
 kb-api enrich --config ~/.config/kb-api/config.yaml
@@ -166,7 +164,7 @@ kb-api reindex --config ~/.config/kb-api/config.yaml
 kb-api status --config ~/.config/kb-api/config.yaml
 ```
 
-Run manually:
+수동으로 실행한다.
 
 ```bash
 export KB_API_TOKEN='replace-with-generated-token'
@@ -174,7 +172,7 @@ export KB_API_ADMIN_TOKEN='replace-with-different-generated-token'
 kb-api serve --config ~/.config/kb-api/config.yaml
 ```
 
-Verify from another shell:
+다른 shell에서 검증한다.
 
 ```bash
 curl -sS http://127.0.0.1:8765/health
@@ -182,30 +180,30 @@ curl -sS 'http://127.0.0.1:8765/health?deep=true'
 curl -sS 'http://127.0.0.1:8765/search?q=SSO' -H "Authorization: Bearer $KB_API_TOKEN"
 ```
 
-### Linux systemd Service
+### Linux systemd Service 설정
 
-Install user service:
+user service를 설치한다.
 
 ```bash
 mkdir -p ~/.config/systemd/user
 cp examples/kb-api.service ~/.config/systemd/user/kb-api.service
 ```
 
-Edit paths and token handling:
+path와 token handling을 수정한다.
 
 ```bash
 vim ~/.config/systemd/user/kb-api.service
 ```
 
-Recommended service token pattern:
+권장 service token pattern:
 
 ```ini
 EnvironmentFile=%h/.config/kb-api/env
 ```
 
-The included `examples/kb-api.service` already uses this pattern. You still need to edit `WorkingDirectory` and `ExecStart` paths for your machine.
+포함된 `examples/kb-api.service`는 이미 이 pattern을 사용한다. 그래도 machine에 맞게 `WorkingDirectory`와 `ExecStart` path를 수정해야 한다.
 
-Start:
+시작한다.
 
 ```bash
 systemctl --user daemon-reload
@@ -213,15 +211,15 @@ systemctl --user enable --now kb-api.service
 systemctl --user status kb-api.service
 ```
 
-### Windows Outlook Import
+### Windows Outlook Import 설정
 
-Install optional Windows dependencies:
+optional Windows dependency를 설치한다.
 
 ```powershell
 python -m pip install -e ".[windows]"
 ```
 
-Create local config outside the repo:
+repo 밖에 local config를 만든다.
 
 ```powershell
 New-Item -ItemType Directory -Force "$env:USERPROFILE\kb-win-sync"
@@ -230,15 +228,15 @@ kb-win-sync list-mailboxes
 notepad "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
 
-`list-mailboxes` prints Outlook mailboxes and folders with numeric indexes, then asks:
+`list-mailboxes`는 Outlook mailbox와 folder를 numeric index와 함께 출력한 뒤 다음을 묻는다.
 
 ```text
 동기화 시키고 싶은 메일함 Index(예: 1,2,3,5):
 ```
 
-Copy the generated `outlook.folders` snippets into the local config and adjust `name`, `target_folder`, and `tags` as needed.
+생성된 `outlook.folders` snippet을 local config에 복사하고 필요에 따라 `name`, `target_folder`, `tags`를 조정한다.
 
-Validate and preview:
+검증하고 미리 확인한다.
 
 ```powershell
 kb-win-sync validate-config --config "$env:USERPROFILE\kb-win-sync\config.yaml"
@@ -247,36 +245,36 @@ kb-win-sync status --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml" --dry-run
 ```
 
-Run:
+실행한다.
 
 ```powershell
 kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
 
-### Windows Task Scheduler
+### Windows Task Scheduler 설정
 
-For detailed Outlook folder selection and Task Scheduler GUI steps, see `docs/WINDOWS_OUTLOOK_SETUP.md`.
+자세한 Outlook folder 선택과 Task Scheduler GUI 단계는 `docs/WINDOWS_OUTLOOK_SETUP.md`를 참고한다.
 
-Use `examples/run-kb-win-sync.bat` as the action target after editing the config path inside the script or matching the default path.
+script 안의 config path를 수정하거나 default path에 맞춘 뒤 `examples/run-kb-win-sync.bat`를 action target으로 사용한다.
 
-Recommended settings:
+권장 설정:
 
-- Run only when the user is logged on if Outlook COM cannot run in a background session.
-- Start in the repository directory or the installed package environment.
-- Run daily after Outlook is normally available.
-- Capture stdout/stderr through Task Scheduler history or redirect in a local wrapper script outside the repo.
+- Outlook COM이 background session에서 실행되지 않으면 user가 logged on 상태일 때만 실행한다.
+- repository directory 또는 설치된 package environment에서 시작한다.
+- Outlook을 정상적으로 사용할 수 있는 시간 이후 매일 실행한다.
+- stdout/stderr는 Task Scheduler history로 capture하거나 repo 밖의 local wrapper script에서 redirect한다.
 
-Register the schedule only after manual `--dry-run` and manual import both work.
+수동 `--dry-run`과 수동 import가 모두 동작한 뒤에만 schedule을 등록한다.
 
-### SFTP Sync Preflight
+### SFTP Sync 사전 확인
 
-Before setting `sync.enabled: true`, verify SSH/SFTP independently from Windows:
+`sync.enabled: true`를 설정하기 전에 Windows에서 SSH/SFTP를 독립적으로 검증한다.
 
 ```powershell
 ssh your-linux-user@linux-dev.example.internal
 ```
 
-On Linux, verify the remote raw vault directory exists and is writable. Also create the enriched vault directory used by `kb_api`.
+Linux에서는 remote raw vault directory가 존재하고 writable인지 확인한다. `kb_api`가 사용하는 enriched vault directory도 만든다.
 
 ```bash
 mkdir -p /home/your-linux-user/kb/KnowledgeVault-Raw
@@ -284,13 +282,13 @@ mkdir -p /home/your-linux-user/kb/KnowledgeVault-Enriched
 test -w /home/your-linux-user/kb/KnowledgeVault-Raw
 ```
 
-Keep `sync.enabled: false` until SSH, remote path, and permissions are confirmed. Do not use GitHub as a sync backend.
+SSH, remote path, permission이 확인될 때까지 `sync.enabled: false`를 유지한다. GitHub를 sync backend로 사용하지 않는다.
 
-`kb_win_sync` should sync into the raw vault. The Linux Cline CLI enrichment step should read that raw vault and write a separate enriched vault. Configure `kb_api.vault_path` to the enriched vault.
+`kb_win_sync`는 raw vault로 sync해야 한다. Linux Cline CLI enrichment 단계는 raw vault를 읽고 별도의 enriched vault를 써야 한다. `kb_api.vault_path`는 enriched vault로 설정한다.
 
-## Upgrade
+## Upgrade 절차
 
-Pull or copy the new source code, then rerun tests and validation:
+새 source code를 pull하거나 복사한 뒤 test와 validation을 다시 실행한다.
 
 ```bash
 python -m unittest discover -s tests -v
@@ -299,16 +297,16 @@ kb-api reindex --config ~/.config/kb-api/config.yaml
 systemctl --user restart kb-api.service
 ```
 
-On Windows, rerun:
+Windows에서는 다시 실행한다.
 
 ```powershell
 kb-win-sync validate-config --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 kb-win-sync --config "$env:USERPROFILE\kb-win-sync\config.yaml" --dry-run
 ```
 
-## Uninstall
+## Uninstall 절차
 
-### Stop and Remove Linux API Service
+### Linux API Service 중지 및 제거
 
 ```bash
 systemctl --user disable --now kb-api.service
@@ -316,61 +314,61 @@ rm -f ~/.config/systemd/user/kb-api.service
 systemctl --user daemon-reload
 ```
 
-Remove local API config, tokens, and DB only if you no longer need them:
+더 이상 필요하지 않을 때만 local API config, token, DB를 제거한다.
 
 ```bash
 rm -rf ~/.config/kb-api
 rm -rf ~/.local/share/kb-api
 ```
 
-Do not delete your Obsidian vault unless you intentionally want to remove your personal knowledge data.
+개인 knowledge data를 의도적으로 제거하려는 경우가 아니면 Obsidian vault를 삭제하지 않는다.
 
-### Remove Windows Scheduled Import
+### Windows Scheduled Import 제거
 
-In Task Scheduler:
+Task Scheduler에서:
 
-1. Open Task Scheduler.
-2. Find the task that runs `run-kb-win-sync.bat` or `kb-win-sync`.
-3. Disable it first.
-4. Delete it after confirming no daily import is needed.
+1. Task Scheduler를 연다.
+2. `run-kb-win-sync.bat` 또는 `kb-win-sync`를 실행하는 task를 찾는다.
+3. 먼저 비활성화한다.
+4. daily import가 필요 없음을 확인한 뒤 삭제한다.
 
-Remove local Windows config/state/logs only if no longer needed:
+더 이상 필요하지 않을 때만 local Windows config/state/log를 제거한다.
 
 ```powershell
 Remove-Item -Recurse -Force "$env:USERPROFILE\kb-win-sync"
 ```
 
-Do not delete the Windows Obsidian vault unless you intentionally want to remove your personal knowledge data.
+개인 knowledge data를 의도적으로 제거하려는 경우가 아니면 Windows Obsidian vault를 삭제하지 않는다.
 
-### Remove Python Package Install
+### Python Package 설치 제거
 
-If installed editable from this repository:
+이 repository에서 editable로 설치했다면:
 
 ```bash
 python3 -m pip uninstall kbkb
 ```
 
-On Windows:
+Windows:
 
 ```powershell
 python -m pip uninstall kbkb
 ```
 
-If you only ran modules directly from the source checkout and did not install the package, there may be no Python package to uninstall.
+source checkout에서 module만 직접 실행했고 package를 설치하지 않았다면 제거할 Python package가 없을 수 있다.
 
-## Verification Checklist
+## 검증 Checklist
 
-After setup:
+setup 후:
 
-- `kb-api smoke-test --config examples/linux-config.fixture.yaml` succeeds with synthetic data.
-- `kb-api status --config <linux-config>` shows expected notes/chunks.
-- `kb-win-sync validate-config --config <windows-config>` reports no errors.
-- No token values are printed in logs or status output.
-- No vault data, `.msg`, SQLite DB, `.env`, local config, or SSH key is inside the source repository.
+- `kb-api smoke-test --config examples/linux-config.fixture.yaml`가 synthetic data로 성공한다.
+- `kb-api status --config <linux-config>`가 예상한 notes/chunks를 보여준다.
+- `kb-win-sync validate-config --config <windows-config>`가 error를 보고하지 않는다.
+- log나 status output에 token value가 출력되지 않는다.
+- source repository 안에 vault data, `.msg`, SQLite DB, `.env`, local config, SSH key가 없다.
 
-After uninstall:
+uninstall 후:
 
-- `systemctl --user status kb-api.service` no longer shows a running service.
-- Task Scheduler no longer runs the Windows import.
-- Local config/token files are removed only if intentionally deleted.
-- Obsidian vault data remains wherever the user chose to keep it.
+- `systemctl --user status kb-api.service`가 더 이상 running service를 보여주지 않는다.
+- Task Scheduler가 더 이상 Windows import를 실행하지 않는다.
+- local config/token file은 의도적으로 삭제한 경우에만 제거된다.
+- Obsidian vault data는 사용자가 보관하기로 한 위치에 남아 있다.

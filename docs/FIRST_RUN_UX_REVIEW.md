@@ -1,8 +1,8 @@
-# First-Run UX Review
+# 첫 실행 UX Review
 
 이 문서는 최초 설치, 첫 실행, 스케줄 등록까지의 사용성을 다시 검토한 결과와 추가 개선 후보를 정리한다. 현재 구현은 MVP 기능 검증에는 충분하지만, Windows Outlook, Linux API, Cline/Codex skill이 나뉘어 있어 처음 설치하는 사용자가 흐름을 놓치기 쉽다.
 
-## Current UX Assessment
+## 현재 UX 평가
 
 현재 좋은 점:
 
@@ -23,7 +23,7 @@
 - config 생성이 수동 copy/edit 중심이라 오타 가능성이 높다.
 - 실패 시 "어느 로그를 먼저 볼지"는 있지만, 증상별 복구 순서가 더 구체적일 수 있다.
 
-## Suggested Additions
+## 제안 추가사항
 
 ### 1. Role-Based First-Run Map
 
@@ -41,7 +41,7 @@
 
 - 사용자가 "지금 Windows에서 할 일"과 "지금 Linux에서 할 일"을 1분 안에 구분할 수 있다.
 
-### 2. End-to-End First Run Checklist
+### 2. End-to-End 첫 실행 Checklist
 
 추가할 체크리스트:
 
@@ -67,7 +67,7 @@
 - 각 단계마다 성공 기준이 한 줄로 있다.
 - 실패 시 다음 진단 명령이 함께 있다.
 
-### 3. Outlook Folder Selection Guide
+### 3. Outlook Folder 선택 Guide
 
 추가 내용:
 
@@ -87,16 +87,16 @@
 
 - Outlook을 모르는 사용자도 config의 `outlook_path`를 작성할 수 있다.
 
-### 4. Windows Task Scheduler Step-by-Step
+### 4. Windows Task Scheduler 단계별 절차
 
 현재 문서는 "Task Scheduler 사용" 수준이다. 다음이 필요하다.
 
 - GUI 절차:
   - Create Task
-  - General: Run only when user is logged on
+  - General: Run only when user is logged on 선택
   - Triggers: daily
   - Actions: `examples/run-kb-win-sync.bat`
-  - Start in: repository or installed package directory
+  - Start in: repository 또는 installed package directory
   - Conditions/Settings 권장값
 - `schtasks` CLI 예제
 - 로그 리다이렉션 wrapper 예제
@@ -203,14 +203,14 @@ curl -sS 'http://127.0.0.1:8765/search?q=SSO' -H "Authorization: Bearer $KB_API_
 
 추가할 matrix:
 
-| Symptom | Likely Cause | First Command | Fix |
+| 증상 | 가능성 높은 원인 | 첫 명령 | 해결 |
 | --- | --- | --- | --- |
-| `KB_API_TOKEN is not set` | env var missing | `echo $KB_API_TOKEN` | export token or systemd env file |
-| `/search` 401 | wrong token | `kb-api status` | set same token for API and skill |
-| DB missing | reindex not run | `kb-api status` | run reindex |
-| Outlook unavailable | pywin32/classic Outlook/session issue | `kb-win-sync validate-config` | install deps, use classic Outlook |
-| folder not found | wrong `outlook_path` | dry-run | fix path from Outlook tree |
-| SFTP failure | SSH/key/remote path issue | `ssh user@host` | fix key/path/permissions |
+| `KB_API_TOKEN is not set` | env var 누락 | `echo $KB_API_TOKEN` | token을 export하거나 systemd env file을 설정 |
+| `/search` 401 | 잘못된 token | `kb-api status` | API와 skill에 같은 token 설정 |
+| DB missing | reindex 미실행 | `kb-api status` | reindex 실행 |
+| Outlook unavailable | pywin32/classic Outlook/session 문제 | `kb-win-sync validate-config` | dependency 설치 및 classic Outlook 사용 |
+| folder not found | 잘못된 `outlook_path` | dry-run | Outlook tree에서 path 수정 |
+| SFTP failure | SSH/key/remote path 문제 | `ssh user@host` | key/path/permission 수정 |
 
 추가 위치:
 
@@ -221,33 +221,33 @@ curl -sS 'http://127.0.0.1:8765/search?q=SSO' -H "Authorization: Bearer $KB_API_
 
 - 흔한 장애에서 문서를 뒤지지 않고 첫 명령과 조치가 보인다.
 
-## Prioritized Implementation List
+## 우선순위 구현 목록
 
-### P0: Documentation Only, Immediate
+### P0: 문서만, 즉시
 
 - Add `docs/WINDOWS_OUTLOOK_SETUP.md`. Implemented.
 - Add `docs/TROUBLESHOOTING.md`. Implemented.
-- Add end-to-end checklist to `docs/SETUP.md`. Implemented as `First-Run Path`.
-- Add curl verification commands for Linux service. Implemented.
-- Add SFTP preflight section. Implemented.
-- Link all first-run docs from README. Implemented.
+- `docs/SETUP.md`에 end-to-end checklist 추가. `First-Run Path`로 구현됨.
+- Linux service용 curl verification command 추가. 구현됨.
+- SFTP preflight section 추가. 구현됨.
+- README에서 모든 first-run doc link. 구현됨.
 
-### P1: Small CLI Improvements
+### P1: 작은 CLI 개선
 
 - Add `init-config` for `kb_api`. Implemented.
 - Add `init-config` for `kb_win_sync`. Implemented.
-- Add `doctor` alias that runs validate/status and prints next actions. Implemented.
-- Improve success output for `smoke-test`, `reindex`, and Windows import. Implemented.
-- Add concise `kb-api` and `kb-win-sync` console commands. Implemented.
-- Keep `python3 -m kb_api` and `python -m kb_win_sync` as fallback entrypoints. Implemented.
+- validate/status를 실행하고 next action을 출력하는 `doctor` alias 추가. 구현됨.
+- `smoke-test`, `reindex`, Windows import 성공 output 개선. 구현됨.
+- 간결한 `kb-api`, `kb-win-sync` console command 추가. 구현됨.
+- `python3 -m kb_api`, `python -m kb_win_sync`를 fallback entrypoint로 유지. 구현됨.
 
-### P2: Deeper UX Improvements
+### P2: 더 깊은 UX 개선
 
-- Add Outlook folder discovery helper on Windows if COM access can enumerate folders safely. Implemented as `kb-win-sync list-mailboxes`.
-- Add `--json` output to status commands for automation.
-- Add `kb-api serve --print-token-status` or startup banner that confirms token env var presence without printing token values.
-- Add service install helper that writes a user systemd file from a template.
+- COM access로 folder enumerate가 안전하면 Windows Outlook folder discovery helper 추가. `kb-win-sync list-mailboxes`로 구현됨.
+- automation을 위해 status command에 `--json` output 추가.
+- token 값을 출력하지 않고 token env var 존재를 확인하는 `kb-api serve --print-token-status` 또는 startup banner 추가.
+- template에서 user systemd file을 쓰는 service install helper 추가.
 
-## Recommended Next Step
+## 권장 다음 단계
 
-The first-run documentation and P1 CLI helpers are now in place. The next low-risk improvement is optional machine-readable `status --json` output; the next user-facing polish item is actual Windows Outlook integration testing of the import summary.
+first-run documentation과 P1 CLI helper는 이제 준비되어 있다. 다음 low-risk improvement는 선택적 machine-readable `status --json` output이고, 다음 user-facing polish item은 is actual Windows Outlook integration testing of the import summary.

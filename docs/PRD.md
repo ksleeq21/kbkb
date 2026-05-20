@@ -1,28 +1,24 @@
-아래는 그대로 PRD.md로 복사해서 Codex에 제공할 수 있는 문서입니다.
+# PRD: Outlook-to-Obsidian 지식 베이스 동기화 및 API
 
-# PRD: Outlook-to-Obsidian Knowledge Base Sync & API
+## 1. 제품 요약
 
-## 1. Product Summary
+이 project는 선택한 Microsoft Outlook email과 text note를 Obsidian vault로 가져오고, 그 vault를 Windows에서 Linux development environment로 동기화한 뒤, Cline/Codex skill 또는 다른 AI coding assistant가 사용할 수 있는 read-only search API를 제공하는 local-first personal knowledge base pipeline을 만든다.
 
-This project builds a local-first personal knowledge base pipeline for importing selected Microsoft Outlook emails and text notes into an Obsidian vault, synchronizing that vault from Windows to a Linux development environment, and exposing a read-only search API that can be used by Cline/Codex skills or other AI coding assistants.
+시스템은 source code와 personal knowledge content를 분리해서 관리해야 하는 enterprise environment를 전제로 설계한다.
 
-The system is designed for an enterprise environment where source code and personal knowledge contents are managed separately.
+## 2. 배경
 
-2. Background
+사용자는 주로 Windows에서 문서 작업과 email communication을 수행하며, Microsoft Office LTSC Professional Plus 2021에 포함된 Microsoft Outlook을 사용한다.
 
-The user primarily performs document work and email communication on Windows using Microsoft Outlook included in:
+Software development는 별도의 Linux machine에서 수행한다. Windows에서 VS Code Remote SSH로 Linux environment에 접속해 개발하며, Cline과 Codex는 Linux development environment에서 실행된다.
 
-Microsoft Office LTSC Professional Plus 2021
+사용자는 과거 email과 개인 text note를 검색 가능하고 knowledge base로 활용 가능하게 만들고 싶다. Obsidian은 note를 local Markdown file로 vault folder에 저장하므로 local-first knowledge management에 적합하다.
 
-The user develops software on a separate Linux machine. Development is done from Windows by connecting to the Linux environment through VS Code Remote SSH. Cline and Codex are used in the Linux development environment.
-
-The user wants to make past emails and personal text notes searchable and usable as a knowledge base. Obsidian is selected because it stores notes as local Markdown files in a vault folder, making it suitable for local-first knowledge management.
-
-However, the source data and the AI execution environment are separated:
+하지만 source data와 AI execution environment는 분리되어 있다.
 
 Windows:
 - Microsoft Outlook
-- Existing text notes
+- 기존 text note
 - Obsidian desktop
 - Windows Obsidian vault
 
@@ -31,145 +27,78 @@ Linux:
 - VS Code server
 - Cline/Codex execution
 - API server
-- Synced copy of Obsidian vault
+- Obsidian vault의 synced copy
 
-Because Cline runs in the Linux development environment and remote MCP access to local Windows data is not available, the preferred approach is to sync raw Markdown to Linux, enrich it on Linux with Cline CLI into a separate enriched vault, and expose a Linux-based HTTP API over the enriched vault. Cline can then use a skill or script to call the API.
+Cline은 Linux development environment에서 실행되고 local Windows data에 대한 remote MCP access가 없으므로, 선호하는 접근은 raw Markdown을 Linux로 sync하고, Linux에서 Cline CLI로 별도의 enriched vault를 만든 뒤, enriched vault 위에 Linux-based HTTP API를 노출하는 것이다. Cline은 skill 또는 script를 통해 이 API를 호출한다.
 
-3. Goals
+## 3. 목표
 
-3.1 Primary Goals
+### 3.1 주요 목표
 
-1. Import selected Outlook emails from Windows into an Obsidian vault as Markdown files.
+1. Windows에서 선택한 Outlook email을 Markdown file로 Obsidian vault에 import한다.
+2. 사용자가 import할 Outlook folder를 설정할 수 있게 한다.
+3. sender, recipients, subject, received time, Outlook folder, conversation ID, attachments 같은 유용한 email metadata를 보존한다.
+4. 가능하면 원본 email을 `.msg`로 저장한다.
+5. email attachment를 deterministic folder structure로 Obsidian vault 안에 저장한다.
+6. manual import와 scheduled daily import를 지원한다.
+7. GitHub를 storage로 사용하지 않고 Windows Obsidian vault를 Linux vault copy로 synchronize한다.
+8. enriched vault를 index하고 read-only HTTP API를 노출하는 Linux service를 만든다.
+9. Cline/Codex skill이 Linux API를 통해 knowledge base content를 search/read할 수 있게 한다.
+10. 시스템을 local-first, enterprise-safe, internal use에 적합하게 유지한다.
 
+### 3.2 보조 목표
 
-2. Allow the user to configure which Outlook folders should be imported.
+1. Obsidian vault의 기존 text note를 지원한다.
+2. project-based tagging과 folder mapping을 지원한다.
+3. imported email과 note에 대한 keyword search를 지원한다.
+4. date, sender, folder, tag, type filter를 지원한다.
+5. AI tool을 위한 compact evidence bundle을 반환하는 context API를 지원한다.
+6. 모든 component를 실행, debug, 확장하기 쉽게 만든다.
+7. 불필요한 dependency, paid service, SaaS service, 불명확한 license obligation을 피한다.
 
+## 4. 비목표
 
-3. Preserve useful email metadata such as sender, recipients, subject, received time, Outlook folder, conversation ID, and attachments.
+첫 version에서는 다음을 하지 않는다.
 
+1. Obsidian vault content를 source repository에 저장하지 않는다.
+2. email, note, attachment를 external SaaS service에 upload하지 않는다.
+3. Obsidian Sync 또는 Obsidian Publish에 의존하지 않는다.
+4. MVP에서 Microsoft Graph API permission을 요구하지 않는다.
+5. Outlook add-in marketplace installation을 요구하지 않는다.
+6. Windows Obsidian vault를 network에 직접 노출하지 않는다.
+7. 첫 version에서 Cline에 write/update/delete API를 제공하지 않는다.
+8. MVP에서 embedding 기반 full RAG system을 만들지 않는다.
+9. 모든 Outlook email을 기본으로 import하지 않는다.
+10. 사용자가 명시적으로 설정하지 않은 sensitive folder를 import하지 않는다.
+11. MVP에서 모든 attachment가 text-index 가능하다고 가정하지 않는다.
 
-4. Save the original email as .msg when possible.
+## 5. 사용자
 
+### 5.1 주요 사용자
 
-5. Save email attachments into the Obsidian vault in a deterministic folder structure.
+Primary user는 다음 특성을 가진 software engineer다.
 
+- Windows를 Outlook, document, general office work에 사용한다.
+- Microsoft Office LTSC Professional Plus 2021을 사용한다.
+- Obsidian으로 personal knowledge를 관리한다.
+- Linux를 software development environment로 사용한다.
+- Windows에서 VS Code Remote SSH로 Linux에 접속한다.
+- Linux environment에서 Cline/Codex를 사용한다.
+- task 해결 중 AI tool이 과거 email과 note를 검색하기를 원한다.
+- GitHub를 personal file storage로 사용하지 못하는 enterprise restriction을 따라야 한다.
 
-6. Support manual import and scheduled daily import.
+### 5.2 AI 도구 사용자
 
+Cline/Codex는 Linux API를 통해 knowledge base를 소비하는 secondary user다. 다음을 할 수 있어야 한다.
 
-7. Synchronize the Windows Obsidian vault to a Linux vault copy without using GitHub as storage.
+- 관련 historical email과 note를 search한다.
+- 특정 note를 path 또는 ID로 read한다.
+- user question에 대한 concise context bundle을 요청한다.
+- 답변에서 source path와 email metadata를 cite한다.
 
+## 6. 상위 아키텍처
 
-8. Build a Linux service that indexes the enriched vault and exposes a read-only HTTP API.
-
-
-9. Allow Cline/Codex skills to search and read knowledge base content through the Linux API.
-
-
-10. Keep the system local-first, enterprise-safe, and suitable for internal use.
-
-
-
-3.2 Secondary Goals
-
-1. Support existing text notes in the Obsidian vault.
-
-
-2. Support project-based tagging and folder mapping.
-
-
-3. Support keyword search over imported emails and notes.
-
-
-4. Support date, sender, folder, tag, and type filters.
-
-
-5. Support a context API that returns a compact evidence bundle for AI tools.
-
-
-6. Make all components easy to run, debug, and extend.
-
-
-7. Avoid unnecessary dependencies, paid services, SaaS services, or unclear license obligations.
-
-
-
-4. Non-Goals
-
-The project must not attempt to do the following in the first version:
-
-1. Do not store Obsidian vault contents in the source repository.
-
-
-2. Do not upload emails, notes, or attachments to external SaaS services.
-
-
-3. Do not depend on Obsidian Sync or Obsidian Publish.
-
-
-4. Do not require Microsoft Graph API permissions in the MVP.
-
-
-5. Do not require an Outlook add-in marketplace installation.
-
-
-6. Do not expose the Windows Obsidian vault directly over the network.
-
-
-7. Do not provide write/update/delete APIs to Cline in the first version.
-
-
-8. Do not build a full RAG system with embeddings in the MVP.
-
-
-9. Do not import every Outlook email by default.
-
-
-10. Do not import sensitive folders unless explicitly configured by the user.
-
-
-11. Do not assume that all attachments can be text-indexed in the MVP.
-
-
-
-5. Users
-
-5.1 Primary User
-
-The primary user is a software engineer who:
-
-Uses Windows for Outlook, documents, and general office work.
-
-Uses Microsoft Office LTSC Professional Plus 2021.
-
-Uses Obsidian to manage personal knowledge.
-
-Uses Linux as the software development environment.
-
-Uses VS Code Remote SSH from Windows to Linux.
-
-Uses Cline/Codex in the Linux environment.
-
-Wants AI tools to search past emails and notes when solving tasks.
-
-Must follow enterprise restrictions against using GitHub as personal file storage.
-
-
-5.2 AI Tool User
-
-Cline/Codex acts as a secondary consumer of the knowledge base through the Linux API. It must be able to:
-
-Search relevant historical emails and notes.
-
-Read specific notes by path or ID.
-
-Request a concise context bundle for a user question.
-
-Cite source paths and email metadata when answering.
-
-
-6. High-Level Architecture
-
+```text
 [Windows]
 Microsoft Outlook LTSC 2021
         │
@@ -214,124 +143,71 @@ Cline/Codex Skill
         ├─ Calls kb-api
         ├─ Retrieves evidence
         └─ Uses results in AI answers
+```
 
-7. Required Components
+## 7. 필수 구성 요소
 
-The product consists of two main applications and one lightweight AI integration package.
+제품은 두 main application과 하나의 lightweight AI integration package로 구성된다.
 
-7.1 Component 1: kb-win-sync
+### 7.1 구성 요소 1: kb-win-sync
 
-A Windows application responsible for:
+Windows application이며 다음을 담당한다.
 
-1. Reading Outlook emails from configured folders.
+1. configured folder에서 Outlook email을 읽는다.
+2. imported email을 Windows Obsidian vault에 쓴다.
+3. email metadata를 YAML frontmatter로 저장한다.
+4. email body를 Markdown으로 저장한다.
+5. 원본 `.msg` file을 저장한다.
+6. attachment를 저장한다.
+7. 이미 import한 message를 추적한다.
+8. 변경된 vault file을 Linux vault copy로 synchronize한다.
+9. manual execution과 scheduled execution을 지원한다.
 
+### 7.2 구성 요소 2: kb-api
 
-2. Writing imported emails into the Windows Obsidian vault.
+Linux application이며 다음을 담당한다.
 
+1. Linux에서 생성된 enriched Obsidian vault를 읽는다.
+2. Markdown file과 YAML frontmatter를 parse한다.
+3. note와 email content를 SQLite에 index한다.
+4. full-text search를 제공한다.
+5. note read API를 제공한다.
+6. AI-friendly context API를 제공한다.
+7. Linux development environment에서 local service로 실행된다.
 
-3. Saving email metadata as YAML frontmatter.
+### 7.3 구성 요소 3: cline-skill-obsidian-kb
 
+Cline/Codex skill package이며 다음을 담당한다.
 
-4. Saving email body as Markdown.
+1. AI가 언제 knowledge base를 사용해야 하는지 설명한다.
+2. Linux API를 호출하는 script를 제공한다.
+3. source citation behavior를 강제한다.
+4. 지원하지 않는 write operation을 방지한다.
+5. AI assistant에 structured evidence를 반환한다.
 
+### 7.4 구성 요소 4: Linux Cline CLI 보강 단계
 
-5. Saving original .msg files.
+Linux enrichment step이며 다음을 담당한다.
 
+1. Windows에서 sync된 raw Markdown을 읽는다.
+2. raw Markdown을 input으로 Cline CLI를 호출한다.
+3. tags, `llm_tags`, `llm_summary` 같은 structured metadata output을 받는다.
+4. Cline CLI output을 검증한다.
+5. raw Markdown은 변경하지 않는다.
+6. indexing을 위한 별도의 enriched Markdown file을 쓴다.
+7. raw Markdown과 저장된 Cline output을 이용한 fixture-based test를 지원한다.
 
-6. Saving attachments.
+## 8. 기능 요구사항
 
+### 8.1 Windows 앱: kb-win-sync
 
-7. Tracking already imported messages.
+#### FR-WIN-001: 설정 가능한 Outlook Folder Import
 
+App은 사용자가 import할 Outlook folder를 설정할 수 있어야 한다.
 
-8. Synchronizing changed vault files to the Linux vault copy.
+Configuration은 다음 형태를 지원한다.
 
-
-9. Supporting manual and scheduled execution.
-
-
-
-7.2 Component 2: kb-api
-
-A Linux application responsible for:
-
-1. Reading the enriched Obsidian vault generated on Linux.
-
-
-2. Parsing Markdown files and YAML frontmatter.
-
-
-3. Indexing notes and email content into SQLite.
-
-
-4. Providing full-text search.
-
-
-5. Providing note read APIs.
-
-
-6. Providing AI-friendly context APIs.
-
-
-7. Running as a local service in the Linux development environment.
-
-
-7.4 Component 4: Linux Cline CLI Enrichment
-
-A Linux enrichment step responsible for:
-
-1. Reading raw Markdown synced from Windows.
-
-
-2. Calling Cline CLI with the raw Markdown as input.
-
-
-3. Receiving structured metadata output such as tags, llm_tags, and llm_summary.
-
-
-4. Validating the Cline CLI output.
-
-
-5. Preserving the raw Markdown unchanged.
-
-
-6. Writing a separate enriched Markdown file for indexing.
-
-
-7. Supporting fixture-based tests using raw Markdown plus saved Cline output.
-
-
-
-7.3 Component 3: cline-skill-obsidian-kb
-
-A Cline/Codex skill package responsible for:
-
-1. Explaining when the AI should use the knowledge base.
-
-
-2. Providing scripts to call the Linux API.
-
-
-3. Enforcing source citation behavior.
-
-
-4. Preventing unsupported write operations.
-
-
-5. Returning structured evidence to the AI assistant.
-
-
-
-8. Functional Requirements
-
-8.1 Windows App: kb-win-sync
-
-FR-WIN-001: Configurable Outlook Folder Import
-
-The app must allow the user to configure which Outlook folders should be imported.
-
-Configuration must support:
-
+```yaml
 outlook:
   folders:
     - name: "project-a"
@@ -342,77 +218,65 @@ outlook:
         - project/project-a
       save_msg: true
       save_attachments: true
+```
 
 Acceptance criteria:
 
-The user can add or remove Outlook folders by editing a config file.
+- 사용자는 config file을 수정해 Outlook folder를 추가하거나 제거할 수 있다.
+- configured folder만 import된다.
+- unconfigured folder는 무시된다.
+- folder-specific tag가 imported Markdown file에 적용된다.
+- folder-specific target path가 지켜진다.
 
-Only configured folders are imported.
+#### FR-WIN-002: Outlook LTSC 2021 호환성
 
-Unconfigured folders are ignored.
-
-Folder-specific tags are applied to imported Markdown files.
-
-Folder-specific target paths are respected.
-
-
-FR-WIN-002: Outlook LTSC 2021 Compatibility
-
-The app must work with Microsoft Outlook included in Microsoft Office LTSC Professional Plus 2021.
+App은 Microsoft Office LTSC Professional Plus 2021에 포함된 Microsoft Outlook과 동작해야 한다.
 
 Implementation expectation:
 
-Use Outlook COM automation through PowerShell or Python pywin32.
-
-Do not require Microsoft Graph API for MVP.
-
-Do not require New Outlook.
-
+- PowerShell 또는 Python `pywin32`를 통한 Outlook COM automation을 사용한다.
+- MVP에서 Microsoft Graph API를 요구하지 않는다.
+- New Outlook을 요구하지 않는다.
 
 Acceptance criteria:
 
-The app can connect to the locally installed Outlook desktop client.
+- locally installed Outlook desktop client에 연결할 수 있다.
+- configured folder를 enumerate할 수 있다.
+- `MailItem` object를 read할 수 있다.
+- subject, sender, recipients, received time, body, attachments, 가능한 conversation metadata를 access할 수 있다.
 
-The app can enumerate configured folders.
+#### FR-WIN-003: Email-to-Markdown Conversion
 
-The app can read MailItem objects.
-
-The app can access subject, sender, recipients, received time, body, attachments, and conversation metadata where available.
-
-
-FR-WIN-003: Email-to-Markdown Conversion
-
-Each imported email must be saved as one Markdown file.
+각 imported email은 하나의 Markdown file로 저장해야 한다.
 
 Recommended file path:
 
+```text
 20_Emails/<FolderName>/<YYYY>/<MM>/<YYYY-MM-DD_HHMM>__<sanitized-subject>__<message-key>.md
+```
 
 Example:
 
+```text
 20_Emails/ProjectA/2026/05/2026-05-19_0915__SSO장애원인분석__a1b2c3d4.md
+```
 
 Acceptance criteria:
 
-One email creates one Markdown file.
+- 하나의 email은 하나의 Markdown file을 만든다.
+- file name은 deterministic하다.
+- unsafe file name character는 제거하거나 대체한다.
+- 긴 subject는 안전하게 truncate한다.
+- duplicate file name은 message key 또는 hash로 피한다.
+- Markdown file은 Obsidian에서 읽기 쉽다.
 
-File names are deterministic.
+#### FR-WIN-004: YAML Frontmatter
 
-Unsafe file name characters are removed or replaced.
-
-Long subjects are truncated safely.
-
-Duplicate file names are avoided using a message key or hash.
-
-Markdown files are readable in Obsidian.
-
-
-FR-WIN-004: YAML Frontmatter
-
-Each imported email Markdown file must include YAML frontmatter.
+각 imported email Markdown file은 YAML frontmatter를 포함해야 한다.
 
 Required fields:
 
+```yaml
 ---
 type: email
 source: outlook
@@ -434,31 +298,27 @@ tags:
   - email
   - project/project-a
 ---
+```
 
 Acceptance criteria:
 
-Frontmatter is valid YAML.
+- frontmatter는 valid YAML이다.
+- missing field는 graceful하게 처리한다.
+- timestamp는 ISO-8601 format을 사용한다.
+- attachment path는 vault root 기준 relative path다.
+- original `.msg` path는 vault root 기준 relative path다.
+- tag는 folder configuration에서 포함된다.
 
-Missing fields are handled gracefully.
+#### FR-WIN-005: Email Body Formatting 처리
 
-Timestamps use ISO-8601 format.
-
-Attachment paths are relative to the vault root.
-
-Original .msg path is relative to the vault root.
-
-Tags are included from folder configuration.
-
-
-FR-WIN-005: Email Body Formatting
-
-The email body must be written below the frontmatter.
+Email body는 frontmatter 아래에 작성한다.
 
 Recommended structure:
 
+```markdown
 # <Email Subject>
 
-## Metadata
+## Metadata 정보
 
 - From: ...
 - To: ...
@@ -466,121 +326,102 @@ Recommended structure:
 - Received: ...
 - Outlook folder: ...
 
-## Body
+## 본문
 
 <plain text email body>
 
-## Attachments
+## 첨부파일
 
 - [[relative/path/to/attachment]]
 - [[relative/path/to/original.msg]]
+```
 
 Acceptance criteria:
 
-The body is readable in Obsidian.
+- body는 Obsidian에서 읽기 쉽다.
+- MVP에서는 plain text body를 우선한다.
+- HTML-to-Markdown conversion은 MVP에서 optional이다.
+- 기본 whitespace cleanup을 적용한다.
+- attachment는 Markdown file에서 link된다.
 
-Plain text body is preferred in MVP.
+#### FR-WIN-006: 원본 `.msg` 저장
 
-HTML-to-Markdown conversion is optional in MVP.
-
-Basic whitespace cleanup is applied.
-
-Attachments are linked from the Markdown file.
-
-
-FR-WIN-006: Save Original .msg
-
-When configured, the app must save the original email as a .msg file.
+설정된 경우 app은 원본 email을 `.msg` file로 저장해야 한다.
 
 Recommended path:
 
+```text
 90_Attachments/email/<message-key>/original.msg
+```
 
 Acceptance criteria:
 
-Original .msg is saved when save_msg: true.
-
-The saved file can be opened by Outlook.
-
-The Markdown frontmatter includes the vault-relative original_msg path.
-
-The Markdown Attachments section links the saved .msg path.
-
-Failures to save .msg are logged but do not stop the entire import.
+- `save_msg: true`이면 원본 `.msg`가 저장된다.
+- 저장된 file은 Outlook에서 열 수 있다.
+- Markdown frontmatter에 vault-relative `original_msg` path가 포함된다.
+- Markdown Attachments section이 저장된 `.msg` path를 link한다.
+- `.msg` 저장 실패는 log에 남기지만 전체 import를 중단하지 않는다.
 
 Implementation note:
 
-The current config model exposes `save_msg`, but quality-complete behavior requires the Outlook adapter to pass through a save hook for the source MailItem and the importer to write the `.msg` artifact before rendering Markdown. Tests should use a fake Outlook item or fake artifact writer so this behavior is verified without requiring Outlook on CI.
+현재 config model은 `save_msg`를 노출하지만 quality-complete behavior를 위해 Outlook adapter가 source `MailItem`의 save hook을 전달하고 importer가 Markdown rendering 전에 `.msg` artifact를 써야 한다. Test는 CI에서 Outlook이 없어도 검증할 수 있도록 fake Outlook item 또는 fake artifact writer를 사용해야 한다.
 
+#### FR-WIN-007: Save Attachments
 
-FR-WIN-007: Save Attachments
-
-When configured, the app must save email attachments.
+설정된 경우 app은 email attachment를 저장해야 한다.
 
 Recommended path:
 
+```text
 90_Attachments/email/<message-key>/<sanitized-attachment-name>
+```
 
 Acceptance criteria:
 
-All regular attachments are saved when save_attachments: true.
-
-Attachment file names are sanitized.
-
-Duplicate attachment names are disambiguated.
-
-Attachment paths are recorded in frontmatter.
-
-Attachment paths are linked in the Markdown body.
-
-Attachment and .msg counters in the import summary reflect actual saved artifacts.
-
-Failures to save individual attachments are logged.
+- `save_attachments: true`이면 일반 attachment가 모두 저장된다.
+- attachment file name은 sanitize된다.
+- duplicate attachment name은 disambiguate된다.
+- attachment path는 frontmatter에 기록된다.
+- attachment path는 Markdown body에 link된다.
+- import summary의 attachment와 `.msg` counter는 실제 저장된 artifact를 반영한다.
+- 개별 attachment 저장 실패는 log에 남는다.
 
 Implementation note:
 
-The importer must save attachments before calling the Markdown renderer so `EmailAttachment.saved_path` is populated. Attachment save failures should be per-file failures, not run-level failures, unless the vault itself is not writable.
+Importer는 Markdown renderer를 호출하기 전에 attachment를 저장해 `EmailAttachment.saved_path`를 채워야 한다. Attachment save failure는 vault 자체가 writable하지 않은 경우가 아니라면 run-level failure가 아니라 per-file failure여야 한다.
 
+#### FR-WIN-008: Duplicate Import 방지
 
-FR-WIN-008: Duplicate Import Prevention
+App은 같은 email을 여러 번 import하지 않아야 한다.
 
-The app must avoid importing the same email multiple times.
-
-Duplicate detection should use a stable message key.
+Duplicate detection은 stable message key를 사용한다.
 
 Preferred key priority:
 
-1. Internet Message-ID, if available.
-
-
-2. Conversation ID + received time + sender + subject hash.
-
-
-3. Outlook EntryID hash as fallback.
-
-
+1. Internet Message-ID가 있으면 사용한다.
+2. Conversation ID + received time + sender + subject hash를 사용한다.
+3. fallback으로 Outlook EntryID hash.
 
 Acceptance criteria:
 
-Re-running the importer does not create duplicate Markdown files.
+- importer를 다시 실행해도 duplicate Markdown file이 생기지 않는다.
+- imported message key는 local state file에 저장된다.
+- state file은 run 사이에 유지된다.
+- email이 이미 존재하면 force option이 없는 한 skip한다.
 
-Imported message keys are stored in a local state file.
+#### FR-WIN-009: Local State 관리
 
-The state file survives across runs.
-
-If an email already exists, the app skips it unless a force option is provided.
-
-
-FR-WIN-009: Local State Management
-
-The app must maintain local import state.
+App은 local import state를 유지해야 한다.
 
 Recommended state path:
 
+```text
 D:\kb-tools\state\outlook-import-state.json
+```
 
 State should include:
 
+```json
 {
   "imported_messages": {
     "a1b2c3d4": {
@@ -591,104 +432,84 @@ State should include:
     }
   }
 }
+```
 
 Acceptance criteria:
 
-State is updated after successful import.
+- successful import 후 state가 update된다.
+- process 실패 시 state가 corrupt되지 않는다.
+- 가능한 곳에서는 state write가 atomic이다.
+- 이전 state backup을 보관할 수 있다.
 
-State is not corrupted if the process fails.
+#### FR-WIN-010: Manual Trigger
 
-State writes are atomic where possible.
-
-A backup of the previous state may be kept.
-
-
-FR-WIN-010: Manual Trigger
-
-The app must support manual execution.
+App은 manual execution을 지원해야 한다.
 
 Acceptance criteria:
 
-The user can run the app from PowerShell.
-
-The user can run the app from a .bat shortcut.
-
-Logs are visible or written to a log file.
-
-Exit code indicates success or failure.
-
+- 사용자는 PowerShell에서 app을 실행할 수 있다.
+- 사용자는 `.bat` shortcut으로 app을 실행할 수 있다.
+- log는 화면에 보이거나 log file에 기록된다.
+- exit code는 success 또는 failure를 나타낸다.
 
 Example:
 
+```text
 powershell.exe -ExecutionPolicy Bypass -File D:\kb-tools\kb-win-sync.ps1
+```
 
-FR-WIN-011: Scheduled Execution
+#### FR-WIN-011: Scheduled Execution
 
-The app must support scheduled execution through Windows Task Scheduler.
+App은 Windows Task Scheduler를 통한 scheduled execution을 지원해야 한다.
 
 Acceptance criteria:
 
-The app can run unattended once per day.
+- app은 하루 한 번 unattended로 실행될 수 있다.
+- interactive input 없이 실행될 수 있다.
+- scheduled run result를 log에 남긴다.
+- COM automation이 허용하면 Outlook이 열려 있지 않아도 처리한다.
+- Outlook access가 실패하면 error를 log에 남기고 clean하게 종료한다.
 
-The app can run without requiring interactive input.
+#### FR-WIN-012: Windows-to-Linux Vault Sync 구현
 
-The app logs scheduled run results.
-
-The app handles Outlook not being open, if COM automation allows it.
-
-If Outlook access fails, the app logs the error and exits cleanly.
-
-
-FR-WIN-012: Windows-to-Linux Vault Sync
-
-The app must sync the Windows vault to the Linux vault copy without using GitHub.
+App은 GitHub를 사용하지 않고 Windows vault를 Linux vault copy로 sync해야 한다.
 
 Recommended sync methods:
 
-1. SFTP over SSH.
-
-
-2. scp or sftp command-line tools.
-
-
-3. rsync if available in the environment.
-
-
-4. SMB mount if approved internally.
-
-
+1. SSH 위의 SFTP.
+2. `scp` 또는 `sftp` command-line tool.
+3. environment에서 가능하면 `rsync`.
+4. 내부 승인이 있는 경우 SMB mount.
 
 MVP recommendation:
 
+```text
 SFTP over SSH with key-based authentication
+```
 
 Acceptance criteria:
 
-New files are copied to Linux.
+- 새 file이 Linux로 copy된다.
+- 변경된 file이 Linux로 copy된다.
+- manifest feature가 활성화된 뒤 unchanged file은 반복 copy되지 않는다.
+- sync는 GitHub를 요구하지 않는다.
+- sync는 external SaaS를 요구하지 않는다.
+- sync error는 log에 남는다.
+- testing을 위해 config에서 sync를 disable할 수 있다.
 
-Changed files are copied to Linux.
+#### FR-WIN-013: Incremental Sync Manifest 관리
 
-Unchanged files are not repeatedly copied after the manifest feature is enabled.
-
-Sync does not require GitHub.
-
-Sync does not require external SaaS.
-
-Sync errors are logged.
-
-Sync can be disabled in config for testing.
-
-
-FR-WIN-013: Incremental Sync Manifest
-
-The app must maintain a sync manifest to avoid copying all files every time after the first successful sync.
+첫 successful sync 이후 매번 모든 file을 copy하지 않도록 app은 sync manifest를 유지해야 한다.
 
 Recommended manifest path:
 
+```text
 D:\KnowledgeVault\.kb-sync-manifest.json
+```
 
 Manifest example:
 
+```json
 {
   "20_Emails/ProjectA/2026/05/mail.md": {
     "size": 15342,
@@ -696,34 +517,30 @@ Manifest example:
     "modified_at": "2026-05-19T09:30:00+09:00"
   }
 }
+```
 
 Acceptance criteria:
 
-The app calculates file hashes or reliable modified metadata.
-
-The app identifies new and changed files.
-
-The app uploads only new or changed files after the first manifest has been written.
-
-The app stores the manifest safely.
-
-The manifest write is atomic where possible.
-
-If sync fails midway, the previous manifest is preserved and the next run retries unsynced files.
+- app은 file hash 또는 신뢰 가능한 modified metadata를 계산한다.
+- app은 new/changed file을 식별한다.
+- 첫 manifest가 작성된 뒤 new/changed file만 upload한다.
+- manifest를 안전하게 저장한다.
+- 가능한 곳에서는 manifest write가 atomic이다.
+- sync가 중간에 실패하면 이전 manifest를 보존하고 다음 run에서 unsynced file을 retry한다.
 
 Quality note:
 
-The implementation must connect `file_digest`, `load_manifest`, and `save_manifest` to `SftpSyncer.sync` so upload eligibility is decided by manifest diffing, not by a blind full-vault upload.
+Implementation은 `file_digest`, `load_manifest`, `save_manifest`를 `SftpSyncer.sync`에 연결해 blind full-vault upload가 아니라 manifest diff로 upload eligibility를 결정해야 한다.
 
+### 8.2 Linux 앱: kb-api
 
-8.2 Linux App: kb-api
+#### FR-LINUX-001: Vault Path 설정
 
-FR-LINUX-001: Vault Path Configuration
-
-The Linux app must read a configured enriched vault path for indexing. Raw Markdown synced from Windows is read by the enrichment step, not directly by the indexer.
+Linux app은 indexing할 configured enriched vault path를 읽어야 한다. Windows에서 sync된 raw Markdown은 indexer가 직접 읽지 않고 enrichment step이 읽는다.
 
 Example config:
 
+```yaml
 vault_path: "/home/kangsan/kb/KnowledgeVault-Enriched"
 raw_vault_path: "/home/kangsan/kb/KnowledgeVault-Raw"
 enriched_vault_path: "/home/kangsan/kb/KnowledgeVault-Enriched"
@@ -735,56 +552,45 @@ admin_token_env: "KB_API_ADMIN_TOKEN"
 server:
   host: "127.0.0.1"
   port: 8765
+```
 
 Acceptance criteria:
 
-Vault path is configurable.
+- vault path는 configurable이다.
+- database path는 configurable이다.
+- API host와 port는 configurable이다.
+- secret은 hardcode하지 않고 environment variable에서 읽는다.
 
-Database path is configurable.
+#### FR-LINUX-002: Markdown Scanner
 
-API host and port are configurable.
-
-Secrets are read from environment variables, not hardcoded.
-
-
-FR-LINUX-002: Markdown Scanner
-
-The app must scan Markdown files under the vault.
+App은 vault 아래 Markdown file을 scan해야 한다.
 
 Acceptance criteria:
 
-The app finds .md files recursively.
+- `.md` file을 recursive하게 찾는다.
+- hidden/system folder는 별도 설정이 없으면 무시한다.
+- full reindex를 수행할 수 있다.
+- 구현한 경우 file modification metadata 기반 incremental reindex를 수행할 수 있다.
+- malformed Markdown을 graceful하게 처리한다.
 
-The app ignores hidden/system folders unless configured otherwise.
+#### FR-LINUX-003: YAML Frontmatter Parser 구현
 
-The app can perform full reindex.
-
-The app can perform incremental reindex based on file modification metadata if implemented.
-
-The app handles malformed Markdown gracefully.
-
-
-FR-LINUX-003: YAML Frontmatter Parser
-
-The app must parse YAML frontmatter from notes.
+App은 note에서 YAML frontmatter를 parse해야 한다.
 
 Acceptance criteria:
 
-The app extracts frontmatter if present.
+- frontmatter가 있으면 추출한다.
+- frontmatter가 없는 file도 처리한다.
+- type, subject, from, received, tags, folder 같은 field를 추출한다.
+- invalid YAML은 log에 남기고 indexer를 crash시키지 않는다.
 
-The app handles files without frontmatter.
+#### FR-LINUX-004: SQLite Index
 
-The app extracts fields such as type, subject, from, received, tags, and folder.
-
-Invalid YAML is logged and does not crash the indexer.
-
-
-FR-LINUX-004: SQLite Index
-
-The app must index note metadata and content into SQLite.
+App은 note metadata와 content를 SQLite에 index해야 한다.
 
 Recommended tables:
 
+```sql
 CREATE TABLE IF NOT EXISTS notes (
   id TEXT PRIMARY KEY,
   path TEXT UNIQUE NOT NULL,
@@ -817,49 +623,50 @@ CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
   note_id UNINDEXED,
   tokenize = 'trigram'
 );
+```
 
 Acceptance criteria:
 
-Notes are stored with stable IDs.
-
-Paths are unique.
-
-Email metadata is queryable.
-
-Content is searchable.
-
-Reindex can rebuild the database from vault contents.
+- note는 stable ID로 저장된다.
+- path는 unique하다.
+- email metadata는 query 가능하다.
+- content는 searchable하다.
+- reindex는 vault content에서 database를 rebuild할 수 있다.
 
 Search quality requirement:
 
-The indexer should prefer FTS5 `trigram` when the local SQLite build supports it, because Korean compound words and partial strings are common in this knowledge base. If trigram is unavailable, the app must fall back to the default tokenizer and make that fallback visible in diagnostics or logs.
+Korean compound word와 partial string이 흔하므로, local SQLite build가 지원하면 indexer는 FTS5 `trigram` tokenizer를 우선해야 한다. trigram이 없으면 default tokenizer로 fallback하고 diagnostics 또는 log에 이를 보여야 한다.
 
+#### FR-LINUX-005: Full-Text Search API 제공
 
-FR-LINUX-005: Full-Text Search API
-
-The app must provide a search API.
+App은 search API를 제공해야 한다.
 
 Endpoint:
 
+```http
 GET /search
+```
 
 Parameters:
 
-q: required search query
-limit: optional, default 10
-type: optional, e.g. email, note
-tag: optional
-sender: optional
-folder: optional
-after: optional ISO date
-before: optional ISO date
+- `q`: required search query
+- `limit`: optional, default 10
+- `type`: optional, e.g. email, note
+- `tag`: optional
+- `sender`: optional
+- `folder`: optional
+- `after`: optional ISO date
+- `before`: optional ISO date
 
 Example:
 
+```http
 GET /search?q=SSO%20장애&type=email&tag=project/project-a&limit=10
+```
 
 Response example:
 
+```json
 {
   "query": "SSO 장애",
   "results": [
@@ -877,52 +684,48 @@ Response example:
     }
   ]
 }
+```
 
 Acceptance criteria:
 
-Search returns relevant notes.
+- Search는 relevant note를 반환한다.
+- Search result에는 path, title, type, metadata, score, excerpt가 포함된다.
+- type, tag, sender, folder, after, before filter를 지원한다.
+- filter는 `/search`, `/context`, skill script에서 일관되게 구현된다.
+- search는 configured vault 밖 file을 노출하지 않는다.
 
-Search result includes path, title, type, metadata, score, and excerpt.
+#### FR-LINUX-006: Note Read API 제공
 
-Search supports filtering by type, tag, sender, folder, after, and before.
-
-Type, tag, sender, folder, after, and before filters are implemented consistently in `/search`, `/context`, and skill scripts.
-
-Search does not expose files outside the configured vault.
-
-
-FR-LINUX-006: Note Read API
-
-The app must provide an API to read a note.
+App은 note를 읽는 API를 제공해야 한다.
 
 Endpoint options:
 
+```http
 GET /notes/{id}
 GET /notes/by-path?path=<relative-path>
+```
 
 Acceptance criteria:
 
-The API returns note metadata and body.
+- API는 note metadata와 body를 반환한다.
+- path access는 configured vault로 제한된다.
+- path traversal attempt는 거부된다.
+- missing note는 404를 반환한다.
+- API는 note를 수정하지 않는다.
 
-Path access is restricted to the configured vault.
+#### FR-LINUX-007: AI Tool용 Context API
 
-Path traversal attempts are rejected.
-
-Missing notes return 404.
-
-The API does not modify notes.
-
-
-FR-LINUX-007: Context API for AI Tools
-
-The app must provide an AI-friendly context endpoint.
+App은 AI-friendly context endpoint를 제공해야 한다.
 
 Endpoint:
 
+```http
 POST /context
+```
 
 Request example:
 
+```json
 {
   "query": "ProjectA SSO 장애 원인과 관련된 과거 메일을 찾아줘",
   "filters": {
@@ -932,9 +735,11 @@ Request example:
   },
   "limit": 8
 }
+```
 
 Response example:
 
+```json
 {
   "query": "ProjectA SSO 장애 원인과 관련된 과거 메일을 찾아줘",
   "evidence": [
@@ -949,85 +754,72 @@ Response example:
     }
   ]
 }
+```
 
 Acceptance criteria:
 
-The endpoint returns compact evidence suitable for Cline/Codex.
+- endpoint는 Cline/Codex에 적합한 compact evidence를 반환한다.
+- 각 evidence item은 source path와 metadata를 포함한다.
+- response는 기본적으로 너무 많은 text를 반환하지 않는다.
+- response는 repeatable AI usage에 충분히 deterministic하다.
 
-Each evidence item includes source path and metadata.
+#### FR-LINUX-008: Reindex API
 
-The response avoids returning too much text by default.
-
-The response is deterministic enough for repeatable AI usage.
-
-
-FR-LINUX-008: Reindex API
-
-The app should provide an admin endpoint to reindex the vault.
+App은 vault reindex를 위한 admin endpoint를 제공해야 한다.
 
 Endpoint:
 
+```http
 POST /admin/reindex
+```
 
 Acceptance criteria:
 
-Reindex can be triggered manually.
+- reindex는 manual trigger가 가능하다.
+- reindex는 SQLite index를 rebuild 또는 update한다.
+- reindex에는 authentication이 필요하다.
+- reindex progress와 error를 log에 남긴다.
+- reindex는 vault file을 수정하지 않는다.
 
-Reindex rebuilds or updates the SQLite index.
+#### FR-LINUX-009: Authentication
 
-Reindex requires authentication.
-
-Reindex logs progress and errors.
-
-Reindex does not modify vault files.
-
-
-FR-LINUX-009: Authentication
-
-The API must require a token for all non-health endpoints.
+API는 모든 non-health endpoint에 token을 요구해야 한다.
 
 Recommended header:
 
+```http
 Authorization: Bearer <KB_API_TOKEN>
+```
 
 Acceptance criteria:
 
-/health may be unauthenticated.
+- `/health`는 unauthenticated일 수 있다.
+- `/search`, `/notes`, `/context`, `/admin/reindex`는 authentication이 필요하다.
+- token은 environment variable에서 읽는다.
+- invalid token은 401 또는 403을 반환한다.
+- token은 절대 log에 남기지 않는다.
 
-/search, /notes, /context, and /admin/reindex require authentication.
+#### FR-LINUX-010: Service Execution
 
-Token is read from environment variable.
-
-Invalid token returns 401 or 403.
-
-Token is never logged.
-
-
-FR-LINUX-010: Service Execution
-
-The API should be runnable as a Linux service.
+API는 Linux service로 실행 가능해야 한다.
 
 Acceptance criteria:
 
-The app can run from the command line.
+- command line에서 실행할 수 있다.
+- systemd 아래에서 실행할 수 있다.
+- restart할 수 있다.
+- log는 stdout 또는 log file에 기록된다.
+- 기본 bind address는 `127.0.0.1`이다.
 
-The app can run under systemd.
+### 8.3 Cline/Codex Skill: cline-skill-obsidian-kb 구성
 
-The app can be restarted.
+#### FR-SKILL-001: Skill Package 구조
 
-Logs are written to stdout and/or a log file.
-
-The app binds to 127.0.0.1 by default.
-
-
-8.3 Cline/Codex Skill: cline-skill-obsidian-kb
-
-FR-SKILL-001: Skill Package Structure
-
-The skill package should be placed in a Cline-compatible skill directory.
+Skill package는 Cline-compatible skill directory에 배치해야 한다.
 
 Recommended structure:
 
+```text
 .cline/
   skills/
     obsidian-kb/
@@ -1036,123 +828,106 @@ Recommended structure:
         kb_search.py
         kb_context.py
         kb_read.py
+```
 
 Acceptance criteria:
 
-Skill instructions are written in SKILL.md.
+- Skill instruction은 `SKILL.md`에 작성된다.
+- script는 Linux API를 호출한다.
+- script는 environment variable에서 API base URL과 token을 읽는다.
+- script는 AI consumption을 위해 JSON 또는 readable text output을 출력한다.
 
-Scripts call the Linux API.
+#### FR-SKILL-002: Skill Behavior Instruction 작성
 
-Scripts read API base URL and token from environment variables.
+`SKILL.md`는 사용자가 다음을 물을 때 AI가 KB API를 사용하도록 지시해야 한다.
 
-Scripts print JSON or readable text output for AI consumption.
-
-
-FR-SKILL-002: Skill Behavior Instructions
-
-SKILL.md must instruct the AI to use the KB API when the user asks about:
-
-Past emails.
-
-Previous decisions.
-
-Project history.
-
-Incidents.
-
-Vendor/customer discussions.
-
-Meeting notes.
-
-Existing personal notes.
-
-Any question requiring private historical context.
-
+- 과거 email
+- 이전 결정
+- project history
+- incident
+- vendor/customer discussion
+- meeting note
+- 기존 personal note
+- private historical context가 필요한 모든 질문
 
 Acceptance criteria:
 
-The skill tells the AI not to guess from memory.
+- skill은 AI가 memory로 추측하지 않도록 지시한다.
+- skill은 AI가 KB API를 먼저 호출하도록 지시한다.
+- skill은 source path와 metadata를 cite하도록 지시한다.
+- skill은 unsupported write API를 호출하지 않도록 지시한다.
+- skill은 evidence가 약할 때 그 사실을 말하도록 지시한다.
 
-The skill tells the AI to call the KB API first.
+#### FR-SKILL-003: Search Script
 
-The skill tells the AI to cite source paths and metadata.
-
-The skill tells the AI not to call unsupported write APIs.
-
-The skill tells the AI to say when evidence is weak.
-
-
-FR-SKILL-003: Search Script
-
-The skill must include a search script.
+Skill은 search script를 포함해야 한다.
 
 Example usage:
 
+```bash
 python .cline/skills/obsidian-kb/scripts/kb_search.py "ProjectA SSO 장애"
+```
 
 Acceptance criteria:
 
-The script calls GET /search.
+- script는 `GET /search`를 호출한다.
+- script는 query와 optional limit을 지원한다.
+- script는 authorization token을 전달한다.
+- script는 result를 명확히 출력한다.
 
-The script supports query and optional limit.
+#### FR-SKILL-004: Context Script
 
-The script passes the authorization token.
-
-The script prints results clearly.
-
-
-FR-SKILL-004: Context Script
-
-The skill must include a context script.
+Skill은 context script를 포함해야 한다.
 
 Example usage:
 
+```bash
 python .cline/skills/obsidian-kb/scripts/kb_context.py "지난 3개월 ProjectA SSO 장애 관련 메일 요약"
+```
 
 Acceptance criteria:
 
-The script calls POST /context.
+- script는 `POST /context`를 호출한다.
+- script는 query, limit, type, tag, sender, folder, after, before filter를 지원한다.
+- script는 source evidence를 출력한다.
+- script는 AI prompt consumption에 적합하다.
 
-The script supports query, limit, type, tag, sender, folder, after, and before filters.
+#### FR-SKILL-005: Read Script
 
-The script prints source evidence.
-
-The script is suitable for AI prompt consumption.
-
-
-FR-SKILL-005: Read Script
-
-The skill must include a note read script.
+Skill은 note read script를 포함해야 한다.
 
 Example usage:
 
+```bash
 python .cline/skills/obsidian-kb/scripts/kb_read.py "20_Emails/ProjectA/2026/05/example.md"
+```
 
 Acceptance criteria:
 
-The script calls GET /notes/by-path.
+- script는 `GET /notes/by-path`를 호출한다.
+- script는 empty path를 거부한다.
+- script는 note metadata와 body를 출력한다.
+- script는 file을 수정하지 않는다.
 
-The script rejects empty paths.
+## 9. 데이터 모델
 
-The script prints note metadata and body.
+### 9.1 Vault 구조
 
-The script does not modify files.
+권장 Windows vault path:
 
-
-9. Data Model
-
-9.1 Vault Structure
-
-Recommended Windows vault path:
-
+```text
 D:\KnowledgeVault
+```
 
-Recommended Linux vault path:
+권장 Linux vault path:
 
+```text
 /home/kangsan/kb/KnowledgeVault
+```
 
 Recommended folder structure:
 
+```text
 KnowledgeVault/
   00_Inbox/
   10_Notes/
@@ -1164,11 +939,13 @@ KnowledgeVault/
   90_Attachments/
     email/
   99_Index/
+```
 
-9.2 Email Markdown File
+### 9.2 Email Markdown 파일
 
 Example:
 
+```markdown
 ---
 type: email
 source: outlook
@@ -1193,30 +970,34 @@ tags:
 
 # SSO 장애 원인 분석 요청
 
-## Metadata
+## Metadata 정보
 
 - From: Kim <kim@example.com>
 - To: Hong <hong@example.com>
 - Received: 2026-05-19 09:15
 - Outlook folder: Inbox/_KB/ProjectA
 
-## Body
+## 본문
 
 메일 본문...
 
-## Attachments
+## 첨부파일
 
 - [[90_Attachments/email/a1b2c3d4/report.xlsx]]
 - [[90_Attachments/email/a1b2c3d4/original.msg]]
+```
 
-9.3 Config File
+### 9.3 Config 파일
 
-Recommended Windows config file:
+권장 Windows config file:
 
+```text
 D:\kb-tools\config.yaml
+```
 
 Example:
 
+```yaml
 vault:
   windows_path: "D:/KnowledgeVault"
 
@@ -1256,15 +1037,19 @@ outlook:
         - project/project-a
       save_msg: true
       save_attachments: true
+```
 
-9.4 Linux API Config
+### 9.4 Linux API Config
 
-Recommended Linux config file:
+권장 Linux config file:
 
+```text
 /home/kangsan/kb/kb-api.yaml
+```
 
 Example:
 
+```yaml
 vault_path: "/home/kangsan/kb/KnowledgeVault-Enriched"
 raw_vault_path: "/home/kangsan/kb/KnowledgeVault-Raw"
 enriched_vault_path: "/home/kangsan/kb/KnowledgeVault-Enriched"
@@ -1283,204 +1068,158 @@ index:
     - ".trash"
   include_extensions:
     - ".md"
+```
 
-10. Security and Privacy Requirements
+## 10. Security 및 Privacy 요구사항
 
-SEC-001: No GitHub Vault Storage
+### SEC-001: GitHub Vault Storage 금지
 
-The system must not store email, notes, attachments, or vault contents in the source repository.
-
-Acceptance criteria:
-
-No vault data is committed to the source repository.
-
-.gitignore prevents accidental vault/database/log inclusion.
-
-Documentation warns that vault data must not be stored in GitHub.
-
-Test fixtures must not contain real emails or sensitive notes.
-
-
-SEC-002: Local-First Storage
-
-All knowledge base data must remain on approved local Windows/Linux machines.
+System은 email, note, attachment, vault content를 source repository에 저장하면 안 된다.
 
 Acceptance criteria:
 
-No external SaaS dependency.
+- vault data는 source repository에 commit되지 않는다.
+- `.gitignore`는 vault/database/log가 우발적으로 포함되는 것을 막는다.
+- documentation은 vault data를 GitHub에 저장하지 말라고 경고한다.
+- test fixture에는 실제 email이나 sensitive note가 없어야 한다.
 
-No external API calls for email import.
+### SEC-002: Local-First Storage
 
-No external LLM calls from the KB API.
-
-No Obsidian Sync dependency.
-
-No Obsidian Publish dependency.
-
-
-SEC-003: Read-Only AI Access
-
-The first version must expose only read-oriented APIs to Cline/Codex.
+모든 knowledge base data는 승인된 local Windows/Linux machine에 남아야 한다.
 
 Acceptance criteria:
 
-Cline/Codex can search and read.
+- external SaaS dependency가 없다.
+- email import를 위한 external API call이 없다.
+- KB API에서 external LLM call을 하지 않는다.
+- Obsidian Sync dependency가 없다.
+- Obsidian Publish dependency가 없다.
 
-Cline/Codex cannot create, update, or delete notes.
+### SEC-003: Read-Only AI Access 유지
 
-Admin reindex is authenticated.
-
-Write APIs are not implemented in MVP.
-
-
-SEC-004: API Token
-
-The Linux API must use a bearer token.
+첫 version은 Cline/Codex에 read-oriented API만 노출해야 한다.
 
 Acceptance criteria:
 
-Token is read from environment variable.
+- Cline/Codex는 search/read할 수 있다.
+- Cline/Codex는 note를 create/update/delete할 수 없다.
+- admin reindex는 authenticated이다.
+- write API는 MVP에서 구현하지 않는다.
 
-Token is required for non-health endpoints.
+### SEC-004: API Token
 
-Token is not hardcoded.
-
-Token is not logged.
-
-
-SEC-005: Path Traversal Protection
-
-The Linux API must prevent path traversal.
+Linux API는 bearer token을 사용해야 한다.
 
 Acceptance criteria:
 
-Requests using ../ are rejected.
+- token은 environment variable에서 읽는다.
+- token은 non-health endpoint에 필요하다.
+- token은 hardcode하지 않는다.
+- token은 log에 남기지 않는다.
 
-Absolute paths are rejected unless explicitly allowed internally.
+### SEC-005: Path Traversal Protection 구현
 
-All note paths are resolved under the configured vault root.
-
-Files outside the vault cannot be read.
-
-
-SEC-006: Sensitive Data Controls
-
-The importer must use a whitelist folder model.
+Linux API는 path traversal을 막아야 한다.
 
 Acceptance criteria:
 
-Only configured Outlook folders are imported.
+- `../`를 사용하는 request는 거부된다.
+- absolute path는 internal에서 명시적으로 허용하지 않는 한 거부된다.
+- 모든 note path는 configured vault root 아래로 resolve된다.
+- vault 밖 file은 read할 수 없다.
 
-Importing all mailbox folders is not supported by default.
+### SEC-006: Sensitive Data Control 적용
 
-User must explicitly add folders to config.
-
-Logs must not include full email bodies.
-
-Logs should avoid excessive sensitive metadata.
-
-
-11. Non-Functional Requirements
-
-NFR-001: Simplicity
-
-The MVP should be simple enough to run and debug manually.
+Importer는 whitelist folder model을 사용해야 한다.
 
 Acceptance criteria:
 
-Windows app can run from PowerShell.
+- configured Outlook folder만 import된다.
+- 기본적으로 모든 mailbox folder import는 지원하지 않는다.
+- 사용자가 config에 folder를 명시적으로 추가해야 한다.
+- log에는 full email body를 포함하지 않는다.
+- log는 sensitive metadata를 과도하게 남기지 않아야 한다.
 
-Linux API can run from shell.
+## 11. 비기능 요구사항
 
-Config files are human-readable YAML.
+### NFR-001: 단순성
 
-Logs are human-readable.
-
-
-NFR-002: Reliability
-
-The system must handle partial failures safely.
+MVP는 수동으로 실행하고 debug하기 충분히 단순해야 한다.
 
 Acceptance criteria:
 
-Failure to import one email does not stop the entire run.
+- Windows app은 PowerShell에서 실행할 수 있다.
+- Linux API는 shell에서 실행할 수 있다.
+- config file은 사람이 읽을 수 있는 YAML이다.
+- log는 사람이 읽을 수 있다.
 
-Failure to save one attachment is logged.
+### NFR-002: 신뢰성
 
-Failure to sync does not corrupt local vault.
+System은 partial failure를 안전하게 처리해야 한다.
 
-State files are updated safely.
+Acceptance criteria:
 
-Re-running the app is idempotent.
+- 한 email import 실패가 전체 run을 중단하지 않는다.
+- 한 attachment 저장 실패는 log에 남는다.
+- sync failure는 local vault를 corrupt하지 않는다.
+- state file은 안전하게 update된다.
+- app 재실행은 idempotent하다.
 
+### NFR-003: 성능
 
-NFR-003: Performance
-
-The MVP should support a realistic personal knowledge base.
+MVP는 realistic personal knowledge base를 지원해야 한다.
 
 Target scale:
 
-Emails: 10,000+
-Markdown notes: 10,000+
-Attachments: best effort, not all indexed
+- Emails: 10,000+
+- Markdown notes: 10,000+
+- Attachments: best effort, 전부 index하지는 않음
 
 Acceptance criteria:
 
-Importing a small daily batch should finish quickly.
+- 작은 daily batch import는 빠르게 끝나야 한다.
+- search는 몇 초 안에 반환되어야 한다.
+- reindex는 local use에 허용 가능한 수준이어야 한다.
+- 가능한 경우 incremental sync는 매 run마다 전체 vault copy를 피해야 한다.
 
-Search should return within a few seconds.
+### NFR-004: 이식성
 
-Reindex should be acceptable for local use.
-
-Incremental sync should avoid copying the entire vault every run where possible.
-
-
-NFR-004: Portability
-
-The project should avoid hardcoded user-specific values.
+Project는 user-specific value를 hardcode하지 않아야 한다.
 
 Acceptance criteria:
 
-Paths are configurable.
+- path는 configurable이다.
+- Outlook folder는 configurable이다.
+- API host/port는 configurable이다.
+- token은 environment variable로 제공된다.
+- script는 documented command로 동작한다.
 
-Outlook folders are configurable.
+### NFR-005: 유지보수성
 
-API host/port are configurable.
-
-Tokens are provided through environment variables.
-
-Scripts work from documented commands.
-
-
-NFR-005: Maintainability
-
-The codebase should be easy for Codex/Cline to modify.
+Codebase는 Codex/Cline이 수정하기 쉬워야 한다.
 
 Acceptance criteria:
 
-Clear module boundaries.
+- module boundary가 명확하다.
+- README가 명확하다.
+- core function test가 있다.
+- 불필요한 framework complexity가 없다.
+- Python에는 type hint를 사용한다.
+- logging과 error handling이 합리적이다.
 
-Clear README.
+## 12. 권장 Repository 구조
 
-Tests for core functions.
-
-No unnecessary framework complexity.
-
-Type hints where Python is used.
-
-Reasonable logging and error handling.
-
-
-12. Recommended Repository Structure
-
-The source code may be stored in a source repository. The vault data must not be stored in the repository.
+Source code는 source repository에 저장할 수 있다. vault data는 repository에 저장하면 안 된다.
 
 Recommended repository name:
 
+```text
 obsidian-kb-pipeline
+```
 
 Recommended structure:
 
+```text
 obsidian-kb-pipeline/
   README.md
   PRD.md
@@ -1543,13 +1282,15 @@ obsidian-kb-pipeline/
       task-scheduler-notes.md
 
   .gitignore
+```
 
-13. .gitignore Requirements
+## 13. .gitignore 요구사항
 
-The repository must prevent accidental commit of real vault data, databases, logs, and secrets.
+Repository는 real vault data, database, log, secret이 우발적으로 commit되는 것을 막아야 한다.
 
-Required .gitignore entries:
+Required `.gitignore` entries:
 
+```gitignore
 # Python
 __pycache__/
 *.pyc
@@ -1594,176 +1335,120 @@ vault/
 Thumbs.db
 .vscode/
 .idea/
+```
 
-14. MVP Scope
+## 14. MVP 범위
 
-The MVP must deliver the minimum useful local-first workflow.
+MVP는 최소한의 유용한 local-first workflow를 제공해야 한다.
 
-MVP Must Have
+MVP Must Have:
 
 1. Windows config file.
-
-
 2. Outlook folder whitelist.
-
-
-3. Import one or more configured Outlook folders.
-
-
-4. Convert emails to Markdown.
-
-
-5. Save .msg original.
-
-
-6. Save attachments.
-
-
-7. Maintain import state to avoid duplicates.
-
-
-8. Sync Windows vault files to Linux using SFTP.
-
-
-9. Linux Cline CLI enrichment from raw Markdown to enriched Markdown.
-
-
-10. Linux enriched vault scanner.
-
-
+3. configured Outlook folder import를 지원한다.
+4. email-to-Markdown conversion.
+5. `.msg` original 저장.
+6. attachment 저장.
+7. duplicate 방지를 위한 import state 유지.
+8. SFTP를 사용한 Windows vault file의 Linux sync.
+9. raw Markdown에서 enriched Markdown으로 Linux Cline CLI enrichment.
+10. Linux enriched vault scanner를 제공한다.
 11. SQLite FTS index.
+12. `/health` endpoint.
+13. `/search` endpoint.
+14. `/notes/by-path` endpoint.
+15. bearer token authentication.
+16. `kb_search.py`, `kb_read.py`를 포함한 Cline skill.
+17. setup/execution documentation.
 
+MVP Should Have:
 
-11. /health endpoint.
+1. incremental sync manifest.
+2. `/context` endpoint.
+3. `POST /admin/reindex`.
+4. Windows Task Scheduler guide를 제공한다.
+5. Linux systemd service file을 제공한다.
+6. basic tests.
 
+MVP Can Defer:
 
-12. /search endpoint.
-
-
-13. /notes/by-path endpoint.
-
-
-14. Bearer token authentication.
-
-
-15. Cline skill with kb_search.py and kb_read.py.
-
-
-16. Documentation for setup and execution.
-
-
-
-MVP Should Have
-
-1. Incremental sync manifest.
-
-
-2. /context endpoint.
-
-
-3. POST /admin/reindex.
-
-
-4. Windows Task Scheduler guide.
-
-
-5. Linux systemd service file.
-
-
-6. Basic tests.
-
-
-
-MVP Can Defer
-
-1. Embedding-based semantic search.
-
-
-2. Graph-based note relationships.
-
-
-3. Attachment text extraction.
-
-
-4. HTML-to-Markdown high-fidelity conversion.
-
-
+1. embedding-based semantic search.
+2. graph-based note relationship.
+3. attachment text extraction.
+4. high-fidelity HTML-to-Markdown conversion.
 5. Outlook calendar import.
-
-
-6. Two-way sync.
-
-
-7. Note editing API.
-
-
+6. two-way sync.
+7. note editing API.
 8. MCP server wrapper.
-
-
 9. Obsidian plugin development.
 
+## 15. 사용자 Workflow
 
+### 15.1 Manual Email Capture Workflow 절차
 
-15. User Workflows
+1. 사용자가 중요한 Outlook email을 받거나 찾는다.
+2. 사용자가 email을 configured Outlook folder, 예를 들어 `Inbox/_KB/ProjectA`로 move/copy한다.
+3. 사용자가 `kb-win-sync`를 manual로 실행한다.
+4. `kb-win-sync`가 email을 Windows Obsidian vault로 import한다.
+5. `kb-win-sync`가 changed file을 Linux로 sync한다.
+6. Linux enrichment가 raw Markdown에 대해 Cline CLI를 실행한다.
+7. enrichment step이 별도의 enriched Markdown file을 쓴다.
+8. `kb-api`가 enriched Markdown file을 index한다.
+9. 사용자가 Cline/Codex에 해당 topic을 질문한다.
+10. Cline/Codex가 KB API를 호출하고 evidence를 사용한다.
 
-15.1 Manual Email Capture Workflow
+### 15.2 Daily Automatic Import Workflow 절차
 
-1. User receives or finds an important Outlook email.
-2. User moves or copies the email into a configured Outlook folder, e.g. Inbox/_KB/ProjectA.
-3. User runs kb-win-sync manually.
-4. kb-win-sync imports the email into the Windows Obsidian vault.
-5. kb-win-sync syncs changed files to Linux.
-6. Linux enrichment runs Cline CLI against the raw Markdown.
-7. The enrichment step writes a separate enriched Markdown file.
-8. kb-api indexes the enriched Markdown file.
-9. User asks Cline/Codex about the topic.
-10. Cline/Codex calls the KB API and uses the evidence.
+1. 사용자가 낮 동안 유용한 email을 configured Outlook `_KB` folder에 넣는다.
+2. Windows Task Scheduler가 하루 한 번 `kb-win-sync`를 실행한다.
+3. email이 Windows Obsidian vault로 import된다.
+4. changed file이 Linux로 sync된다.
+5. Linux Cline CLI enrichment가 자동 또는 on demand로 실행된다.
+6. Linux reindex가 enriched vault 대상으로 자동 또는 on demand로 실행된다.
+7. Cline/Codex는 updated knowledge base를 search할 수 있다.
 
-15.2 Daily Automatic Import Workflow
-
-1. User places useful emails into configured Outlook _KB folders during the day.
-2. Windows Task Scheduler runs kb-win-sync once per day.
-3. Emails are imported into the Windows Obsidian vault.
-4. Changed files are synced to Linux.
-5. Linux Cline CLI enrichment runs automatically or on demand.
-6. Linux reindex runs against the enriched vault automatically or on demand.
-7. Cline/Codex can search the updated knowledge base.
-
-15.3 AI Search Workflow
+### 15.3 AI Search Workflow 절차
 
 Example user request:
 
+```text
 지난 3개월 동안 ProjectA SSO 장애와 관련된 메일과 노트를 찾아서 원인, 결정사항, 남은 액션아이템을 정리해줘.
+```
 
 Expected AI behavior:
 
-1. Cline/Codex detects that private historical knowledge is needed.
-2. Cline/Codex uses the obsidian-kb skill.
-3. Skill script calls kb-api /context or /search.
-4. API returns relevant notes and emails.
-5. AI reads high-value notes using /notes/by-path.
-6. AI summarizes with evidence.
-7. AI cites source path, sender, and received date where available.
+1. Cline/Codex는 private historical knowledge가 필요함을 감지한다.
+2. Cline/Codex는 obsidian-kb skill을 사용한다.
+3. Skill script가 `kb-api /context` 또는 `/search`를 호출한다.
+4. API가 relevant note와 email을 반환한다.
+5. AI가 `/notes/by-path`로 high-value note를 읽는다.
+6. AI가 evidence와 함께 summarize한다.
+7. 가능한 경우 AI가 source path, sender, received date를 cite한다.
 
-16. API Specification
+## 16. API 명세
 
-16.1 GET /health
+### 16.1 GET /health
 
 Response:
 
+```json
 {
   "status": "ok"
 }
+```
 
-16.2 GET /search
+### 16.2 GET /search
 
 Request:
 
+```http
 GET /search?q=<query>&limit=10&type=email&tag=project/project-a
 Authorization: Bearer <token>
+```
 
 Response:
 
+```json
 {
   "query": "SSO 장애",
   "results": [
@@ -1781,16 +1466,20 @@ Response:
     }
   ]
 }
+```
 
-16.3 GET /notes/by-path
+### 16.3 GET /notes/by-path
 
 Request:
 
+```http
 GET /notes/by-path?path=20_Emails/ProjectA/2026/05/example.md
 Authorization: Bearer <token>
+```
 
 Response:
 
+```json
 {
   "id": "abc123",
   "path": "20_Emails/ProjectA/2026/05/example.md",
@@ -1803,11 +1492,13 @@ Response:
   },
   "body": "# SSO 장애 원인 분석 요청\n\n..."
 }
+```
 
-16.4 POST /context
+### 16.4 POST /context
 
 Request:
 
+```json
 {
   "query": "ProjectA SSO 장애 원인",
   "filters": {
@@ -1816,9 +1507,11 @@ Request:
   },
   "limit": 8
 }
+```
 
 Response:
 
+```json
 {
   "query": "ProjectA SSO 장애 원인",
   "evidence": [
@@ -1833,32 +1526,40 @@ Response:
     }
   ]
 }
+```
 
-16.5 POST /admin/reindex
+### 16.5 POST /admin/reindex
 
 Request:
 
+```http
 POST /admin/reindex
 Authorization: Bearer <token>
+```
 
 Response:
 
+```json
 {
   "status": "ok",
   "indexed_notes": 1234,
   "indexed_chunks": 4567
 }
+```
 
-17. CLI Requirements
+## 17. CLI 요구사항
 
-17.1 Windows CLI
+### 17.1 Windows CLI
 
 Command:
 
+```powershell
 kb-win-sync --config D:\kb-tools\config.yaml
+```
 
 Useful options:
 
+```text
 --config <path>
 --dry-run
 --import-only
@@ -1866,678 +1567,458 @@ Useful options:
 --folder <name>
 --force
 --verbose
+```
 
 Acceptance criteria:
 
---dry-run shows what would be imported.
+- `--dry-run`은 import될 대상을 보여준다.
+- `--import-only`는 sync를 skip한다.
+- `--sync-only`는 Outlook import를 skip한다.
+- `--folder`는 import를 configured folder 하나로 제한한다.
+- `--verbose`는 logging을 늘린다.
 
---import-only skips sync.
-
---sync-only skips Outlook import.
-
---folder limits import to one configured folder.
-
---verbose increases logging.
-
-
-17.2 Linux CLI
+### 17.2 Linux CLI
 
 Commands:
 
+```bash
 kb-api reindex --config ~/kb/kb-api.yaml
 kb-api serve --config ~/kb/kb-api.yaml
+```
 
 Acceptance criteria:
 
-reindex indexes the vault.
+- `reindex`는 vault를 index한다.
+- `serve`는 API server를 시작한다.
+- 두 command는 같은 config file을 읽는다.
 
-serve starts the API server.
+## 18. Logging 요구사항
 
-Both commands read the same config file.
+Windows app은 다음을 log해야 한다.
 
+- run start/end
+- config path
+- configured folder 수
+- scanned email 수
+- imported email 수
+- skipped duplicate 수
+- saved attachment 수
+- sync upload 수
+- error와 warning
 
-18. Logging Requirements
+Windows app은 다음을 log하면 안 된다.
 
-Windows App Logs
+- full email body
+- full attachment content
+- API token
+- SSH private key content를 log에 남기지 않는다
 
-The Windows app should log:
+Linux app은 다음을 log해야 한다.
 
-Run start and end.
+- API server start
+- vault path
+- reindex start/end
+- indexed file 수
+- malformed frontmatter warning
+- search error
+- token value 없는 authentication failure
 
-Config path.
+Linux app은 다음을 log하면 안 된다.
 
-Number of configured folders.
+- API token
+- 기본적으로 full note content
+- 기본적으로 sensitive email body
 
-Number of scanned emails.
+## 19. Error Handling 요구사항
 
-Number of imported emails.
+Windows app은 다음을 처리해야 한다.
 
-Number of skipped duplicates.
-
-Number of saved attachments.
-
-Number of sync uploads.
-
-Errors and warnings.
-
-
-The Windows app should not log:
-
-Full email body.
-
-Full attachment contents.
-
-API tokens.
-
-SSH private key contents.
-
-
-Linux App Logs
-
-The Linux app should log:
-
-API server start.
-
-Vault path.
-
-Reindex start and end.
-
-Number of indexed files.
-
-Malformed frontmatter warnings.
-
-Search errors.
-
-Authentication failures without token values.
-
-
-The Linux app should not log:
-
-API token.
-
-Full note contents by default.
-
-Sensitive email bodies by default.
-
-
-19. Error Handling Requirements
-
-Windows App
-
-The app must handle:
-
-Outlook not available.
-
-Config file missing.
-
-Invalid Outlook folder path.
-
-Email body read failure.
-
-Attachment save failure.
-
-.msg save failure.
-
-Vault path missing.
-
-SSH/SFTP connection failure.
-
-Remote path missing.
-
-State file corruption.
-
+- Outlook not available
+- config file missing
+- invalid Outlook folder path 처리
+- email body read failure 처리
+- attachment save failure
+- `.msg` save failure
+- vault path missing
+- SSH/SFTP connection failure 처리
+- remote path missing
+- state file corruption
 
 Expected behavior:
 
-Log the error.
+- error를 log에 남긴다.
+- 안전할 때는 continue한다.
+- fatal error는 non-zero exit code로 종료한다.
+- vault를 의도적으로 corrupt하지 않는다.
+- source Outlook email을 삭제하지 않는다.
 
-Continue when safe.
+Linux app은 다음을 처리해야 한다.
 
-Exit with non-zero code for fatal errors.
-
-Never corrupt the vault intentionally.
-
-Never delete source Outlook emails.
-
-
-Linux App
-
-The app must handle:
-
-Vault path missing.
-
-SQLite open failure.
-
-Invalid Markdown.
-
-Invalid YAML frontmatter.
-
-Path traversal attempts.
-
-Missing note path.
-
-Empty search query.
-
-Invalid token.
-
-Reindex failure.
-
+- vault path missing
+- SQLite open failure
+- invalid Markdown
+- invalid YAML frontmatter
+- path traversal attempt
+- missing note path
+- empty search query
+- invalid token
+- reindex failure
 
 Expected behavior:
 
-Return appropriate HTTP status codes.
+- 적절한 HTTP status code를 반환한다.
+- 유용한 diagnostic을 log에 남긴다.
+- API error에서 sensitive internal detail 노출을 피한다.
 
-Log useful diagnostics.
+## 20. Testing 요구사항
 
-Avoid exposing sensitive internals in API errors.
-
-
-20. Testing Requirements
-
-20.1 Unit Tests
+### 20.1 Unit Tests
 
 Required tests:
 
-kb_win_sync:
+`kb_win_sync`:
 - filename sanitization
 - message key generation
 - Markdown rendering
 - frontmatter generation
-- state store read/write
+- state store read/write 검증
 - manifest diff logic
 
-kb_api:
+`kb_api`:
 - frontmatter parsing
 - vault path safety
 - note indexing
 - search query handling
 - auth token handling
-- note read by path
+- path 기반 note read
 
-20.2 Integration Tests
+### 20.2 Integration Tests
 
-Use fake test fixtures only. Do not include real emails.
+fake test fixture만 사용한다. 실제 email을 포함하지 않는다.
 
 Recommended fixtures:
 
+```text
 tests/fixtures/vault/
   20_Emails/ProjectA/2026/05/sample-email.md
   10_Notes/sample-note.md
+```
 
 Required integration tests:
 
-Index fixture vault.
+- fixture vault를 index한다.
+- search가 expected fixture note를 반환한다.
+- read-by-path가 expected note를 반환한다.
+- path traversal이 거부된다.
+- unauthorized request가 거부된다.
 
-Search returns expected fixture note.
-
-Read-by-path returns expected note.
-
-Path traversal is rejected.
-
-Unauthorized request is rejected.
-
-
-20.3 Manual Tests
+### 20.3 Manual Tests
 
 Manual Windows test:
 
-1. Create Outlook folder Inbox/_KB/General.
-2. Copy one test email into the folder.
-3. Run kb-win-sync.
-4. Confirm Markdown file appears in Windows vault.
-5. Confirm .msg file appears under 90_Attachments.
-6. Confirm attachments are saved.
-7. Run kb-win-sync again.
-8. Confirm duplicate Markdown file is not created.
+1. Outlook folder `Inbox/_KB/General`을 만든다.
+2. test email 하나를 folder로 copy한다.
+3. `kb-win-sync`를 실행한다.
+4. Windows vault에 Markdown file이 생겼는지 확인한다.
+5. `.msg` file이 `90_Attachments` 아래에 생겼는지 확인한다.
+6. attachment가 저장되었는지 확인한다.
+7. `kb-win-sync`를 다시 실행한다.
+8. duplicate Markdown file이 생기지 않았는지 확인한다.
 
 Manual Linux test:
 
-1. Confirm raw vault exists on Linux.
-2. Run Cline CLI enrichment.
-3. Confirm enriched Markdown exists and raw Markdown is unchanged.
-4. Run reindex against the enriched vault.
-3. Start API server.
-4. Call /health.
-5. Call /search.
-6. Call /notes/by-path.
-7. Call script from Cline skill.
+1. Linux에 raw vault가 있는지 확인한다.
+2. Cline CLI enrichment를 실행한다.
+3. enriched Markdown이 존재하고 raw Markdown이 변경되지 않았는지 확인한다.
+4. enriched vault를 대상으로 reindex를 실행한다.
+5. API server를 시작한다.
+6. `/health`를 호출한다.
+7. `/search`를 호출한다.
+8. `/notes/by-path`를 호출한다.
+9. Cline skill script를 호출한다.
 
-21. Documentation Requirements
+## 21. Documentation 요구사항
 
-The project must include:
+Project는 다음을 포함해야 한다.
 
-1. README.md
-
-
-2. PRD.md
-
-
-3. DESIGN.md
-
-
-4. PLAN.md
-
-
+1. `README.md`
+2. `PRD.md`
+3. `DESIGN.md`
+4. `PLAN.md`
 5. Windows setup guide.
-
-
 6. Linux setup guide.
-
-
-7. Cline skill setup guide.
-
-
+7. Cline skill setup guide를 제공한다.
 8. Security notes.
-
-
 9. Troubleshooting guide.
 
+README는 다음을 설명해야 한다.
 
+- project가 하는 일
+- project가 하지 않는 일
+- GitHub에 vault data를 저장하면 안 되는 이유
+- Outlook folder 설정 방법
+- Windows import 실행 방법
+- Linux sync 방법
+- Linux API 실행 방법
+- Cline skill 사용 방법
 
-README must explain:
+## 22. 권장 구현 선택지
 
-What this project does.
+Windows app 권장 implementation:
 
-What this project does not do.
-
-Why GitHub must not store vault data.
-
-How to configure Outlook folders.
-
-How to run Windows import.
-
-How to sync to Linux.
-
-How to run Linux API.
-
-How to use the Cline skill.
-
-
-22. Suggested Implementation Choices
-
-Windows App
-
-Preferred implementation:
-
+```text
 Python + pywin32 + paramiko + pyyaml
+```
 
 Alternative:
 
+```text
 PowerShell + Outlook COM + OpenSSH sftp
+```
 
 Recommendation:
 
-Use Python if maintainability and testability are more important. Use PowerShell if the fastest possible Windows automation MVP is desired.
+maintainability와 testability가 더 중요하면 Python을 사용한다. 가장 빠른 Windows automation MVP가 목표이면 PowerShell을 사용한다.
 
-Linux App
+Linux app 권장 implementation:
 
-Preferred implementation:
-
+```text
 Python + FastAPI + SQLite FTS5 + pyyaml
+```
 
 Recommended packages:
 
+```text
 fastapi
 uvicorn
 pydantic
 pyyaml
 python-frontmatter or custom parser
+```
 
-Sync
+Sync preferred MVP:
 
-Preferred MVP:
-
+```text
 SFTP over SSH
+```
 
 Avoid:
 
+```text
 GitHub
 External cloud drives
 External SaaS sync services
+```
 
-23. Milestones
+## 23. Milestone
 
-Milestone 1: Repository Skeleton
-
-Deliverables:
-
-Repository structure.
-
-README.md.
-
-PRD.md.
-
-.gitignore.
-
-Example config files.
-
-Empty package skeletons.
-
-
-Acceptance criteria:
-
-Repository contains no real vault data.
-
-Project can be opened by Codex/Cline.
-
-Basic commands are documented.
-
-
-Milestone 2: Windows Import MVP
+### Milestone 1: Repository Skeleton 구성
 
 Deliverables:
 
-Config parser.
-
-Outlook folder reader.
-
-Markdown writer.
-
-.msg saver.
-
-Attachment saver.
-
-State store.
-
-Manual CLI.
-
+- repository structure
+- `README.md`
+- `PRD.md`
+- `.gitignore`
+- example config file
+- empty package skeleton
 
 Acceptance criteria:
 
-One configured Outlook folder can be imported.
+- repository에는 real vault data가 없다.
+- project는 Codex/Cline에서 열 수 있다.
+- basic command가 documented되어 있다.
 
-Re-run does not duplicate emails.
-
-Markdown appears in Windows vault.
-
-.msg and attachments are saved.
-
-
-Milestone 3: Windows-to-Linux Sync MVP
+### Milestone 2: Windows Import MVP 구현
 
 Deliverables:
 
-SFTP sync implementation.
-
-Sync config.
-
-Basic manifest or simple upload logic.
-
-Sync logging.
-
+- config parser
+- Outlook folder reader
+- Markdown writer
+- `.msg` saver
+- attachment saver
+- state store
+- manual CLI
 
 Acceptance criteria:
 
-Windows vault files are copied to the Linux raw vault.
+- configured Outlook folder 하나를 import할 수 있다.
+- re-run이 email을 duplicate하지 않는다.
+- Markdown이 Windows vault에 나타난다.
+- `.msg`와 attachment가 저장된다.
 
-Sync can run after import.
-
-Sync failure is logged.
-
-
-Milestone 3.5: Linux Cline CLI Enrichment MVP
+### Milestone 3: Windows-to-Linux Sync MVP 구현
 
 Deliverables:
 
-Raw Markdown input reader.
-
-Cline CLI invocation wrapper.
-
-Structured metadata output capture.
-
-Metadata validator.
-
-Enriched Markdown writer.
-
-Golden fixture tests for raw Markdown plus Cline output.
-
+- SFTP sync implementation
+- sync config
+- basic manifest 또는 simple upload logic
+- sync logging
 
 Acceptance criteria:
 
-Raw Markdown is never overwritten.
+- Windows vault file이 Linux raw vault로 copy된다.
+- sync는 import 후 실행될 수 있다.
+- sync failure는 log에 남는다.
 
-The same raw Markdown and saved Cline output generate the same enriched Markdown.
-
-Invalid Cline output is rejected without modifying raw or enriched Markdown.
-
-kb-api can index the enriched vault after enrichment succeeds.
-
-
-Milestone 4: Linux Index and Search API
+### Milestone 3.5: Linux Cline CLI Enrichment MVP 구현
 
 Deliverables:
 
-Vault scanner.
-
-Frontmatter parser.
-
-SQLite schema.
-
-Reindex command.
-
-FastAPI server.
-
-/health, /search, /notes/by-path.
-
+- raw Markdown input reader 구현
+- Cline CLI invocation wrapper 구현
+- structured metadata output capture 구현
+- metadata validator
+- enriched Markdown writer
+- raw Markdown과 Cline output을 위한 golden fixture test
 
 Acceptance criteria:
 
-Enriched vault can be indexed.
+- raw Markdown은 절대 overwrite되지 않는다.
+- 같은 raw Markdown과 saved Cline output은 같은 enriched Markdown을 만든다.
+- invalid Cline output은 raw 또는 enriched Markdown을 수정하지 않고 reject된다.
+- enrichment 성공 후 `kb-api`가 enriched vault를 index할 수 있다.
 
-Search returns imported emails.
-
-Note read works by path.
-
-API requires bearer token.
-
-
-Milestone 5: Cline Skill
+### Milestone 4: Linux Index 및 Search API 구현
 
 Deliverables:
 
-SKILL.md.
-
-kb_search.py.
-
-kb_read.py.
-
-Optional kb_context.py.
-
+- vault scanner
+- frontmatter parser
+- SQLite schema
+- reindex command
+- FastAPI server
+- `/health`, `/search`, `/notes/by-path`
 
 Acceptance criteria:
 
-Cline/Codex can call the scripts.
+- enriched vault를 index할 수 있다.
+- search가 imported email을 반환한다.
+- note read가 path로 동작한다.
+- API는 bearer token을 요구한다.
 
-Scripts call the Linux API.
-
-Results include source paths and metadata.
-
-Skill instructions prevent unsupported write operations.
-
-
-Milestone 6: Automation and Hardening
+### Milestone 5: Cline Skill 구성
 
 Deliverables:
 
-Windows Task Scheduler guide.
-
-Linux systemd service.
-
-Admin reindex endpoint or timer.
-
-Additional tests.
-
-Troubleshooting guide.
-
+- `SKILL.md`
+- `kb_search.py`
+- `kb_read.py`
+- optional `kb_context.py`
 
 Acceptance criteria:
 
-Daily import can run automatically.
+- Cline/Codex가 script를 호출할 수 있다.
+- script는 Linux API를 호출한다.
+- result는 source path와 metadata를 포함한다.
+- skill instruction은 unsupported write operation을 막는다.
 
-Linux API can run as a service.
+### Milestone 6: Automation 및 Hardening
 
-System can recover from common failures.
+Deliverables:
 
-Documentation is sufficient for repeat setup.
+- Windows Task Scheduler guide 작성
+- Linux systemd service
+- admin reindex endpoint 또는 timer
+- additional tests
+- troubleshooting guide
 
+Acceptance criteria:
 
-24. Open Questions
+- daily import를 자동으로 실행할 수 있다.
+- Linux API를 service로 실행할 수 있다.
+- system은 common failure에서 recover할 수 있다.
+- documentation은 repeat setup에 충분하다.
 
-1. What is the exact Outlook mailbox display name on Windows?
+## 24. 열린 질문
 
+1. Windows의 정확한 Outlook mailbox display name은 무엇인가?
+2. 첫 MVP에 포함할 Outlook folder는 무엇인가?
+3. Windows vault path는 무엇인가?
+4. Linux vault path는 무엇인가?
+5. 사용자 environment에서 Windows-to-Linux SSH/SFTP가 허용되는가?
+6. Windows에서 삭제된 file을 Linux에서도 삭제할 것인가, 아니면 append/update only sync로 둘 것인가?
+7. attachment를 즉시 sync할 것인가, 아니면 큰 attachment를 제외할 수 있는가?
+8. `.msg` file도 Linux로 sync할 것인가, 아니면 Markdown과 선택한 attachment만 sync할 것인가?
+9. Linux API는 `127.0.0.1`에만 bind할 것인가, 아니면 다른 machine에서 접근 가능해야 하는가?
+10. MVP에서 HTML email body를 Markdown으로 변환할 것인가, 아니면 plain text로 충분한가?
 
-2. What Outlook folders should be included in the first MVP?
+## 25. MVP 기본 결정
 
-
-3. What is the Windows vault path?
-
-
-4. What is the Linux vault path?
-
-
-5. Is SSH/SFTP from Windows to Linux allowed in the user's environment?
-
-
-6. Should deleted files on Windows be deleted on Linux, or should sync be append/update only?
-
-
-7. Should attachments be synced immediately, or can large attachments be excluded?
-
-
-8. Should .msg files be synced to Linux, or only Markdown and selected attachments?
-
-
-9. Should the Linux API bind only to 127.0.0.1, or be reachable from other machines?
-
-
-10. Should HTML email bodies be converted to Markdown in MVP, or should plain text be enough?
-
-
-
-25. Default Decisions for MVP
-
-Unless overridden, use these decisions:
+별도 override가 없으면 다음 decision을 사용한다.
 
 Outlook access:
-- Use local Outlook COM automation.
+- local Outlook COM automation을 사용한다.
 
 Windows vault:
-- D:\KnowledgeVault
+- `D:\KnowledgeVault`
 
 Linux raw vault:
-- /home/kangsan/kb/KnowledgeVault-Raw
+- `/home/kangsan/kb/KnowledgeVault-Raw`
 
 Linux enriched vault:
-- /home/kangsan/kb/KnowledgeVault-Enriched
+- `/home/kangsan/kb/KnowledgeVault-Enriched`
 
 Sync:
 - SFTP over SSH.
-- No GitHub storage.
-- Append/update sync first.
-- Do not delete Linux files in MVP.
+- GitHub storage 사용 안 함.
+- append/update sync 우선.
+- MVP에서는 Linux file을 delete하지 않음.
 
 Email format:
-- One email per Markdown file.
-- Save plain text body.
-- Save .msg original.
-- Save attachments.
+- email 하나당 Markdown file 하나.
+- plain text body 저장.
+- `.msg` original 저장.
+- attachment 저장.
 
 Index:
 - SQLite FTS5.
-- No embeddings in MVP.
+- MVP에서는 embedding 사용 안 함.
 
 API:
 - FastAPI.
-- Bind to 127.0.0.1.
-- Bearer token required.
+- `127.0.0.1`에 bind.
+- bearer token required.
 
 AI integration:
-- Cline skill scripts call the API.
-- Read-only access only.
+- Cline skill script가 API를 호출한다.
+- read-only access only.
 
-26. Definition of Done
+## 26. 완료 기준
 
-The MVP is complete when all of the following are true:
+다음이 모두 true이면 MVP가 complete이다.
 
-1. The user can configure at least one Outlook folder.
+1. 사용자가 Outlook folder 하나 이상을 configure할 수 있다.
+2. Windows app이 해당 folder에서 email을 import할 수 있다.
+3. imported email이 Windows Obsidian vault에 Markdown file로 나타난다.
+4. configured이면 original `.msg` file과 attachment가 저장된다.
+5. importer를 다시 실행해도 email이 duplicate되지 않는다.
+6. Windows app은 GitHub 없이 vault file을 Linux로 sync할 수 있다.
+7. Linux Cline CLI enrichment step은 raw Markdown을 overwrite하지 않고 enriched Markdown을 생성할 수 있다.
+8. Linux app은 enriched vault를 index할 수 있다.
+9. Linux API는 imported email을 search할 수 있다.
+10. Linux API는 relative path로 note를 read할 수 있다.
+11. API는 bearer token으로 보호된다.
+12. Cline/Codex skill script가 API를 호출할 수 있다.
+13. AI answer는 source path, sender, received date를 포함할 수 있다.
+14. repository에는 real email, note, attachment, vault, database, secret data가 없다.
+15. documentation은 system의 install, configure, run, troubleshoot 방법을 설명한다.
 
+## 27. Codex 구현 지침
 
-2. The Windows app can import emails from that folder.
+이 project를 implement할 때 다음 순서를 우선한다.
 
+1. clean repository skeleton을 만든다.
+2. testable pure function을 먼저 구현한다.
+3. example config file 외에는 user-specific path를 hardcode하지 않는다.
+4. real vault content 또는 real email data를 절대 commit하지 않는다.
+5. Windows import와 Linux API를 separate package로 구현한다.
+6. MVP에서 API는 read-only로 유지한다.
+7. parsing, path safety, duplicate prevention test를 추가한다.
+8. 명확한 setup instruction을 제공한다.
+9. 작고 검증 가능한 milestone을 사용한다.
+10. clever abstraction보다 boring하고 maintainable한 code를 선호한다.
 
-3. Imported emails appear as Markdown files in the Windows Obsidian vault.
-
-
-4. Original .msg files and attachments are saved when configured.
-
-
-5. Re-running the importer does not duplicate emails.
-
-
-6. The Windows app can sync the vault files to Linux without using GitHub.
-
-
-7. The Linux Cline CLI enrichment step can generate enriched Markdown without overwriting raw Markdown.
-
-
-8. The Linux app can index the enriched vault.
-
-
-9. The Linux API can search imported emails.
-
-
-10. The Linux API can read a note by relative path.
-
-
-10. The API is protected by a bearer token.
-
-
-11. A Cline/Codex skill script can call the API.
-
-
-12. AI answers can include source paths, sender, and received date.
-
-
-13. The repository contains no real email, note, attachment, vault, database, or secret data.
-
-
-14. Documentation explains how to install, configure, run, and troubleshoot the system.
-
-
-
-27. Codex Implementation Instruction
-
-When implementing this project, prioritize the following order:
-
-1. Create a clean repository skeleton.
-
-
-2. Implement testable pure functions first.
-
-
-3. Avoid hardcoding user-specific paths except in example config files.
-
-
-4. Never commit real vault contents or real email data.
-
-
-5. Implement Windows import and Linux API as separate packages.
-
-
-6. Keep APIs read-only in MVP.
-
-
-7. Add tests for parsing, path safety, and duplicate prevention.
-
-
-8. Provide clear setup instructions.
-
-
-9. Use small, verifiable milestones.
-
-
-10. Prefer boring, maintainable code over clever abstractions.
-
-
-
-Do not use the source repository as a storage backend for vault data.
+Source repository를 vault data의 storage backend로 사용하지 않는다.

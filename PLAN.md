@@ -1,4 +1,4 @@
-# PLAN: Outlook-to-Obsidian Knowledge Base Sync & API
+# 계획: Outlook-to-Obsidian Knowledge Base Sync & API
 
 이 계획은 `docs/PRD.md`를 기준으로 MVP를 스토리 단위로 쪼갠 실행 계획이다. 각 스토리는 독립적으로 완료 여부를 판단할 수 있어야 하며, 실제 이메일/노트/첨부파일/볼트 데이터는 저장소에 포함하지 않는다.
 
