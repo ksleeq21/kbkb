@@ -14,7 +14,23 @@ from .outlook import OutlookClient, OutlookUnavailable
 from .render import message_key, render_markdown, sanitize_filename, target_path
 from .state import StateStore
 from .sync import SftpSyncer
-from .templates import WINDOWS_CONFIG_TEMPLATE
+from .templates import render_windows_config_template
+
+
+def _ensure_windows_directories(config) -> list[Path]:
+    directories = {
+        Path(config.vault_path),
+        Path(config.state_path).parent,
+        Path(config.log_path).parent,
+    }
+    if config.sync.manifest_path is not None:
+        directories.add(Path(config.sync.manifest_path).parent)
+    if config.sync.key_path:
+        directories.add(Path(config.sync.key_path).parent)
+    ensured = sorted(directories)
+    for directory in ensured:
+        directory.mkdir(parents=True, exist_ok=True)
+    return ensured
 
 
 def _write_config_template(output_arg: str | None, *, force: bool) -> int:
@@ -27,12 +43,18 @@ def _write_config_template(output_arg: str | None, *, force: bool) -> int:
         print("Use --force to overwrite.", file=sys.stderr)
         return 2
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(WINDOWS_CONFIG_TEMPLATE, encoding="utf-8")
+    config_text = render_windows_config_template()
+    output.write_text(config_text, encoding="utf-8")
+    config = load_config(output)
+    ensured = _ensure_windows_directories(config)
     print(f"created config: {output}")
+    print("ensured directories:")
+    for directory in ensured:
+        print(f"  {directory}")
     print("next:")
-    print(f"  1. edit {output}")
-    print(f"  2. kb-win-sync list-mailboxes --config {output}")
-    print(f"  3. kb-win-sync doctor --config {output}")
+    print(f"  1. kb-win-sync list-mailboxes --config {output}")
+    print(f"  2. kb-win-sync doctor --config {output}")
+    print(f"  3. kb-win-sync --config {output} --dry-run")
     return 0
 
 
@@ -332,6 +354,10 @@ def main(argv: list[str] | None = None) -> int:
         lines, ok = doctor_lines(config)
         print("\n".join(lines))
         return 0 if ok else 2
+
+    if not config.folders and not args.sync_only:
+        print(f"ERROR: no Outlook folders configured. Run: kb-win-sync list-mailboxes --config {args.config}", file=sys.stderr)
+        return 2
 
     config.log_path.parent.mkdir(parents=True, exist_ok=True)
     logging.basicConfig(

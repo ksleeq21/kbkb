@@ -20,7 +20,7 @@ class CheckResult:
 def validate_config(config: WinConfig) -> CheckResult:
     result = CheckResult()
     if not config.folders:
-        result.errors.append("outlook.folders must contain at least one folder")
+        result.warnings.append("outlook.folders is empty; run list-mailboxes to select folders before import")
     for folder in config.folders:
         if not folder.name.strip():
             result.errors.append("folder name must not be empty")
@@ -85,6 +85,9 @@ def doctor_lines(config: WinConfig) -> tuple[list[str], bool]:
     lines.append("next:")
     if check.errors:
         lines.append("  Fix config errors, then rerun: python -m kb_win_sync doctor --config <config>")
+    elif not config.folders:
+        lines.append("  Select Outlook folders: python -m kb_win_sync list-mailboxes --config <config>")
+        lines.append("  Then preview import: python -m kb_win_sync --config <config> --dry-run")
     else:
         lines.append("  Preview import: python -m kb_win_sync --config <config> --dry-run")
         lines.append("  Run import manually before registering Task Scheduler.")

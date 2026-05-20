@@ -31,8 +31,19 @@ class WinSyncTests(unittest.TestCase):
                     "log_path": "log.txt",
                     "outlook": {"folders": [{"name": "bad"}]},
                 }
-            )
+        )
         self.assertIn("missing: outlook_path, target_folder", str(ctx.exception))
+
+    def test_windows_config_allows_empty_initial_folder_list(self) -> None:
+        config = parse_config(
+            {
+                "vault_path": "C:/Users/klee/KnowledgeVault",
+                "state_path": "C:/Users/klee/AppData/Local/kb-win-sync/state/import-state.json",
+                "log_path": "C:/Users/klee/AppData/Local/kb-win-sync/logs/kb-win-sync.log",
+                "outlook": {"folders": []},
+            }
+        )
+        self.assertEqual(config.folders, [])
 
     def test_parse_mailbox_selection(self) -> None:
         self.assertEqual(parse_mailbox_selection("1,2, 3,2", 5), [1, 2, 3])

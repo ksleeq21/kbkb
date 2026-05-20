@@ -49,8 +49,8 @@ def parse_config(data: dict[str, Any]) -> WinConfig:
         raise ValueError(f"Missing required Windows config keys: {', '.join(missing)}")
     outlook = data.get("outlook") or {}
     raw_folders = outlook.get("folders") or []
-    if not raw_folders:
-        raise ValueError("At least one outlook.folders entry is required")
+    if not isinstance(raw_folders, list):
+        raise ValueError("outlook.folders must be a list")
     folder_errors: list[str] = []
     folders: list[OutlookFolderConfig] = []
     for index, item in enumerate(raw_folders, start=1):

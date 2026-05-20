@@ -36,11 +36,12 @@ kb-win-sync --help
 Windows importer config를 만든다.
 
 ```powershell
-New-Item -ItemType Directory -Force "$env:USERPROFILE\kb-win-sync"
 kb-win-sync init-config --output "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
 
-그다음 Outlook folder를 찾고 생성된 config를 수정한다.
+`init-config`는 `%USERPROFILE%\KnowledgeVault`, state/log directory, SSH key parent directory를 만들고 Windows user path가 들어간 config를 생성한다.
+
+그다음 Outlook folder picker에서 동기화할 folder 번호를 선택한다. 선택한 folder는 config에 자동으로 추가된다.
 
 ```powershell
 kb-win-sync list-mailboxes --config "$env:USERPROFILE\kb-win-sync\config.yaml"

@@ -26,7 +26,15 @@ kb-win-sync list-mailboxes --config "$env:USERPROFILE\kb-win-sync\config.yaml"
 notepad "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
 
-생성된 file은 template이다. `vault_path`, `outlook.folders`, 선택적 `sync`를 수정한다.
+`init-config`는 Windows user profile 기준으로 다음을 자동 처리한다.
+
+- `%USERPROFILE%\KnowledgeVault` vault directory 생성
+- `%USERPROFILE%\AppData\Local\kb-win-sync\state` 생성
+- `%USERPROFILE%\AppData\Local\kb-win-sync\logs` 생성
+- `%USERPROFILE%\.ssh` parent directory 생성
+- placeholder mailbox 없이 빈 `outlook.folders` config 생성
+
+`list-mailboxes --config <path>`는 선택한 Outlook folder를 `outlook.folders` 아래에 자동으로 추가한다. 이후 `name`, `target_folder`, `tags`, 선택적 `sync`만 필요하면 수정한다.
 
 SFTP sync를 사용할 경우 `sync.key_path`는 Windows에 있는 SSH private key file을 가리켜야 한다. key 생성과 Linux 등록 절차는 `docs/WINDOWS_SSH_KEY_SETUP.md`를 참고한다.
 
@@ -59,7 +67,7 @@ Example output shape:
       save_attachments: true
 ```
 
-Import를 실행하기 전에 config에 추가된 `name`, `target_folder`, `tags`를 검토한다.
+Import를 실행하기 전에 config에 추가된 `name`, `target_folder`, `tags`를 검토한다. 전체 Inbox를 선택하지 않도록 folder index를 확인한다.
 
 ## Outlook Folder 선택
 

@@ -123,9 +123,10 @@ python -m pip install -e ".[windows]"
 로컬 설정 파일을 만든다.
 
 ```powershell
-New-Item -ItemType Directory -Force "$env:USERPROFILE\kb-win-sync"
 kb-win-sync init-config --output "$env:USERPROFILE\kb-win-sync\config.yaml"
 ```
+
+`init-config`는 Windows user profile 기준으로 vault, state/log directory, SSH key parent directory를 만들고 placeholder 없는 config를 생성한다.
 
 ## 5. Windows: Select Mailboxes
 
