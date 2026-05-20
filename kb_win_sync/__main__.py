@@ -5,6 +5,7 @@ import logging
 import sys
 from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 from .config import load_config
 from .email_model import EmailAttachment, EmailMessage
@@ -14,6 +15,37 @@ from .render import message_key, render_markdown, sanitize_filename, target_path
 from .state import StateStore
 from .sync import SftpSyncer
 from .templates import WINDOWS_CONFIG_TEMPLATE
+
+
+def _write_config_template(output_arg: str | None, *, force: bool) -> int:
+    if not output_arg:
+        print("ERROR: --output is required for init-config", file=sys.stderr)
+        return 2
+    output = Path(output_arg)
+    if output.exists() and not force:
+        print(f"ERROR: config already exists: {output}", file=sys.stderr)
+        print("Use --force to overwrite.", file=sys.stderr)
+        return 2
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(WINDOWS_CONFIG_TEMPLATE, encoding="utf-8")
+    print(f"created config: {output}")
+    print("next:")
+    print(f"  1. edit {output}")
+    print("  2. kb-win-sync list-mailboxes")
+    print(f"  3. kb-win-sync doctor --config {output}")
+    return 0
+
+
+def _print_check_result(result) -> int:
+    for item in result.errors:
+        print(f"ERROR: {item}")
+    for item in result.warnings:
+        print(f"WARNING: {item}")
+    if result.ok:
+        print("config: ok")
+        return 0
+    print("config: failed", file=sys.stderr)
+    return 2
 
 
 def parse_mailbox_selection(text: str, max_index: int) -> list[int]:
@@ -110,6 +142,71 @@ def _unique_attachment_name(filename: str, used_names: dict[str, int]) -> str:
     return f"{stem}-{count + 1}{suffix}"
 
 
+def run_import(
+    config,
+    client: Any,
+    *,
+    dry_run: bool,
+    folder_filter: str | None,
+    force: bool,
+    config_path: str,
+) -> dict[str, int]:
+    store = StateStore(config.state_path)
+    state = store.load()
+    summary = {
+        "scanned": 0,
+        "imported": 0,
+        "skipped_duplicate": 0,
+        "failed": 0,
+        "attachments_saved": 0,
+        "msg_saved": 0,
+    }
+    selected_folders = 0
+    excluded_folders = 0
+    for folder in config.folders:
+        if folder_filter and folder.name != folder_filter:
+            excluded_folders += 1
+            continue
+        selected_folders += 1
+        for email in client.iter_folder_messages(folder):
+            summary["scanned"] += 1
+            path = target_path(email, folder.target_folder)
+            key = message_key(email)
+            if key in state.imported and not force:
+                summary["skipped_duplicate"] += 1
+                if dry_run:
+                    print(f"skip duplicate key={key} subject={email.subject!r} target={path}")
+                continue
+            if dry_run:
+                print(f"import key={key} sender={email.sender!r} received={email.received!r} subject={email.subject!r} target={path}")
+                continue
+            try:
+                email, attachments_saved, msg_saved = save_email_artifacts(
+                    email,
+                    config.vault_path,
+                    save_msg=folder.save_msg,
+                    save_attachments=folder.save_attachments,
+                )
+                output = config.vault_path / Path(path)
+                output.parent.mkdir(parents=True, exist_ok=True)
+                output.write_text(render_markdown(email, folder.target_folder), encoding="utf-8")
+                state.mark_imported(key, path)
+                summary["imported"] += 1
+                summary["attachments_saved"] += attachments_saved
+                summary["msg_saved"] += msg_saved
+            except OSError as exc:
+                summary["failed"] += 1
+                logging.error("Import failed for message_key=%s target=%s error=%s", key, path, exc)
+    print(f"folders selected={selected_folders} excluded={excluded_folders}")
+    print("summary " + " ".join(f"{key}={value}" for key, value in summary.items()))
+    if dry_run:
+        print(f"next: kb-win-sync --config {config_path}")
+    else:
+        print("next: run enrichment/reindex on Linux after raw Markdown sync completes")
+        store.save(state)
+    return summary
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m kb_win_sync")
     parser.add_argument(
@@ -130,20 +227,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "init-config":
-        if not args.output:
-            print("ERROR: --output is required for init-config", file=sys.stderr)
-            return 2
-        output = Path(args.output)
-        if output.exists() and not args.force:
-            print(f"ERROR: config already exists: {output}", file=sys.stderr)
-            print("Use --force to overwrite.", file=sys.stderr)
-            return 2
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(WINDOWS_CONFIG_TEMPLATE, encoding="utf-8")
-        print(f"created config: {output}")
-        print(f"next: edit {output}")
-        print(f"next: python -m kb_win_sync validate-config --config {output}")
-        return 0
+        return _write_config_template(args.output, force=args.force)
     if args.command == "list-mailboxes":
         try:
             client = OutlookClient()
@@ -171,16 +255,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     config = load_config(args.config)
     if args.command == "validate-config":
-        result = validate_config(config)
-        for item in result.errors:
-            print(f"ERROR: {item}")
-        for item in result.warnings:
-            print(f"WARNING: {item}")
-        if result.ok:
-            print("config: ok")
-            return 0
-        print("config: failed", file=sys.stderr)
-        return 2
+        return _print_check_result(validate_config(config))
     if args.command == "status":
         print("\n".join(status_lines(config)))
         return 0
@@ -202,56 +277,14 @@ def main(argv: list[str] | None = None) -> int:
         except OutlookUnavailable as exc:
             logging.error("Outlook unavailable: %s", exc)
             return 2
-        store = StateStore(config.state_path)
-        state = store.load()
-        summary = {
-            "scanned": 0,
-            "imported": 0,
-            "skipped_duplicate": 0,
-            "failed": 0,
-            "attachments_saved": 0,
-            "msg_saved": 0,
-        }
-        selected_folders = 0
-        excluded_folders = 0
-        for folder in config.folders:
-            if args.folder and folder.name != args.folder:
-                excluded_folders += 1
-                continue
-            selected_folders += 1
-            for email in client.iter_folder_messages(folder):
-                summary["scanned"] += 1
-                path = target_path(email, folder.target_folder)
-                key = message_key(email)
-                if key in state.imported and not args.force:
-                    summary["skipped_duplicate"] += 1
-                    if args.dry_run:
-                        print(f"skip duplicate key={key} subject={email.subject!r} target={path}")
-                    continue
-                if args.dry_run:
-                    print(f"import key={key} sender={email.sender!r} received={email.received!r} subject={email.subject!r} target={path}")
-                    continue
-                try:
-                    email, attachments_saved, msg_saved = save_email_artifacts(
-                        email,
-                        config.vault_path,
-                        save_msg=folder.save_msg,
-                        save_attachments=folder.save_attachments,
-                    )
-                    output = config.vault_path / Path(path)
-                    output.parent.mkdir(parents=True, exist_ok=True)
-                    output.write_text(render_markdown(email, folder.target_folder), encoding="utf-8")
-                    state.mark_imported(key, path)
-                    summary["imported"] += 1
-                    summary["attachments_saved"] += attachments_saved
-                    summary["msg_saved"] += msg_saved
-                except OSError as exc:
-                    summary["failed"] += 1
-                    logging.error("Import failed for message_key=%s target=%s error=%s", key, path, exc)
-        print(f"folders selected={selected_folders} excluded={excluded_folders}")
-        print("summary " + " ".join(f"{key}={value}" for key, value in summary.items()))
-        if not args.dry_run:
-            store.save(state)
+        run_import(
+            config,
+            client,
+            dry_run=args.dry_run,
+            folder_filter=args.folder,
+            force=args.force,
+            config_path=args.config,
+        )
 
     if not args.import_only and not args.dry_run:
         uploaded = SftpSyncer(config.sync).sync(config.vault_path)

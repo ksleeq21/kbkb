@@ -47,7 +47,6 @@
 
 완성도 개선 중에도 아래는 변경하지 않는다.
 
-- GitHub/GitHub Enterprise를 vault 또는 개인 지식 데이터 저장소로 사용하지 않는다.
 - 외부 SaaS, Obsidian Sync, Obsidian Publish, Microsoft Graph API 의존성을 추가하지 않는다.
 - Cline/Codex용 API는 read-only로 유지한다.
 - 실제 이메일, 실제 첨부파일, 실제 vault 데이터는 저장소에 넣지 않는다.
@@ -59,7 +58,7 @@
 
 작업:
 
-- `python3 -m kb_api smoke-test --config examples/linux-config.fixture.yaml` 명령을 추가한다.
+- `kb-api smoke-test --config examples/linux-config.fixture.yaml` 명령을 추가한다.
 - smoke test가 fixture reindex, health, search, read, context 흐름을 한 번에 검증하게 한다.
 - README 상단에 "5-minute local smoke test" 섹션을 추가한다.
 - smoke test 성공 시 다음 단계로 Windows config 작성, API service 등록, skill 환경 변수 설정을 안내한다.
@@ -77,8 +76,8 @@
 
 작업:
 
-- `python -m kb_win_sync validate-config --config <path>`를 추가한다.
-- `python3 -m kb_api validate-config --config <path>`를 추가한다.
+- `kb-win-sync validate-config --config <path>`를 추가한다.
+- `kb-api validate-config --config <path>`를 추가한다.
 - Windows config 검증 항목:
   - required key 누락
   - vault/state/log parent path 해석 가능 여부
@@ -175,14 +174,14 @@
 
 작업:
 
-- `python -m kb_win_sync status --config <path>`를 추가한다.
+- `kb-win-sync status --config <path>`를 추가한다.
 - Windows status 출력:
   - vault path 존재 여부
   - state file 존재 여부와 imported count
   - configured folders count
   - sync enabled 여부
   - last import time
-- `python3 -m kb_api status --config <path>`를 추가한다.
+- `kb-api status --config <path>`를 추가한다.
 - API status 출력:
   - vault path 존재 여부
   - database path 존재 여부
@@ -263,6 +262,11 @@ Started:
 
 Completed in current implementation:
 
+- Editable install exposes concise `kb-api` and `kb-win-sync` console commands while preserving `python -m` fallback compatibility.
+- `init-config`, `smoke-test`, `reindex`, and Windows import/dry-run success output now include explicit `next:` guidance.
+- README, setup, workflow, operations, troubleshooting, and Windows setup docs now use the concise first-run commands.
+- Skill script HTTP error formatting is shared by `kb_search.py` and `kb_context.py`, reducing duplicated parsing logic.
+- CLI usability tests assert the console script declarations and guided `init-config` output.
 - Full Outlook attachment and `.msg` save hooks with fake adapter tests.
 - Manifest-backed incremental SFTP sync so unchanged files are not uploaded every run.
 - Broader search filters: tag, after, and before, wired through `/search`, `/context`, and skill scripts.
@@ -274,7 +278,7 @@ Remaining:
 - Richer Windows import summary after actual Outlook integration testing.
 - Highlight-friendly snippets around matched terms.
 - Run-id logging across Windows import/sync.
-- First-run documentation improvements listed in `docs/FIRST_RUN_UX_REVIEW.md` are mostly implemented; keep them synced as CLI output changes.
+- Optional JSON output for status commands if automation consumers need it.
 
 ### Milestone A: Setup Confidence
 

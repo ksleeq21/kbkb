@@ -153,8 +153,8 @@ curl -sS 'http://127.0.0.1:8765/search?q=SSO' -H "Authorization: Bearer $KB_API_
 
 현재는 예제 config를 복사하고 직접 편집한다. 개선 후보:
 
-- `python3 -m kb_api init-config --output ~/.config/kb-api/config.yaml`
-- `python -m kb_win_sync init-config --output "$env:USERPROFILE\kb-win-sync\config.yaml"`
+- `kb-api init-config --output ~/.config/kb-api/config.yaml`
+- `kb-win-sync init-config --output "$env:USERPROFILE\kb-win-sync\config.yaml"`
 - overwrite 방지
 - 생성 후 다음 명령 안내
 
@@ -170,8 +170,8 @@ curl -sS 'http://127.0.0.1:8765/search?q=SSO' -H "Authorization: Bearer $KB_API_
 
 개선 후보:
 
-- `python3 -m kb_api doctor --config <path>`
-- `python -m kb_win_sync doctor --config <path>`
+- `kb-api doctor --config <path>`
+- `kb-win-sync doctor --config <path>`
 
 `doctor`는 `validate-config`, `status`, dependency check, token env check, path check를 한 번에 실행한다.
 
@@ -206,9 +206,9 @@ curl -sS 'http://127.0.0.1:8765/search?q=SSO' -H "Authorization: Bearer $KB_API_
 | Symptom | Likely Cause | First Command | Fix |
 | --- | --- | --- | --- |
 | `KB_API_TOKEN is not set` | env var missing | `echo $KB_API_TOKEN` | export token or systemd env file |
-| `/search` 401 | wrong token | `python3 -m kb_api status` | set same token for API and skill |
-| DB missing | reindex not run | `python3 -m kb_api status` | run reindex |
-| Outlook unavailable | pywin32/classic Outlook/session issue | `python -m kb_win_sync validate-config` | install deps, use classic Outlook |
+| `/search` 401 | wrong token | `kb-api status` | set same token for API and skill |
+| DB missing | reindex not run | `kb-api status` | run reindex |
+| Outlook unavailable | pywin32/classic Outlook/session issue | `kb-win-sync validate-config` | install deps, use classic Outlook |
 | folder not found | wrong `outlook_path` | dry-run | fix path from Outlook tree |
 | SFTP failure | SSH/key/remote path issue | `ssh user@host` | fix key/path/permissions |
 
@@ -237,15 +237,17 @@ curl -sS 'http://127.0.0.1:8765/search?q=SSO' -H "Authorization: Bearer $KB_API_
 - Add `init-config` for `kb_api`. Implemented.
 - Add `init-config` for `kb_win_sync`. Implemented.
 - Add `doctor` alias that runs validate/status and prints next actions. Implemented.
-- Improve success output for `smoke-test`, `reindex`, and Windows import.
+- Improve success output for `smoke-test`, `reindex`, and Windows import. Implemented.
+- Add concise `kb-api` and `kb-win-sync` console commands. Implemented.
+- Keep `python3 -m kb_api` and `python -m kb_win_sync` as fallback entrypoints. Implemented.
 
 ### P2: Deeper UX Improvements
 
-- Add Outlook folder discovery helper on Windows if COM access can enumerate folders safely.
+- Add Outlook folder discovery helper on Windows if COM access can enumerate folders safely. Implemented as `kb-win-sync list-mailboxes`.
 - Add `--json` output to status commands for automation.
-- Add `kb_api serve --print-token-status` or startup banner that confirms token env var presence without printing token values.
+- Add `kb-api serve --print-token-status` or startup banner that confirms token env var presence without printing token values.
 - Add service install helper that writes a user systemd file from a template.
 
 ## Recommended Next Step
 
-Implement P0 documentation first. It has the highest usability impact with the lowest risk. Then implement P1 CLI helpers once the desired first-run flow is stable.
+The first-run documentation and P1 CLI helpers are now in place. The next low-risk improvement is optional machine-readable `status --json` output; the next user-facing polish item is actual Windows Outlook integration testing of the import summary.
