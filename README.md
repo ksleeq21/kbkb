@@ -76,6 +76,8 @@ export KB_API_TOKEN='replace-with-local-token'
 export KB_API_ADMIN_TOKEN='replace-with-admin-token'
 ```
 
+Linux에서 강한 token을 생성하고 systemd environment file에 저장하는 절차는 [docs/LINUX_TOKEN_SETUP.md](docs/LINUX_TOKEN_SETUP.md)를 사용한다.
+
 config를 검증한다.
 
 ```bash
@@ -146,6 +148,8 @@ SFTP sync를 활성화하기 전에 Windows SSH private key를 만들고 Linux�
 export KB_API_TOKEN='replace-with-local-token'
 export KB_API_ADMIN_TOKEN='replace-with-admin-token'
 ```
+
+Token 생성, 확인, service environment file 설정은 [docs/LINUX_TOKEN_SETUP.md](docs/LINUX_TOKEN_SETUP.md)를 참고한다.
 
 3. Linux에서 raw Markdown을 enrich한 뒤 enriched Markdown vault에서 index를 다시 만든다.
 
