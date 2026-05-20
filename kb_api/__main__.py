@@ -117,6 +117,7 @@ def main(argv: list[str] | None = None) -> int:
     enrich.add_argument("--config", required=True)
     enrich.add_argument("--use-cache-only", action="store_true")
     enrich.add_argument("--cline-command", default="cline")
+    enrich.add_argument("--file", help="raw_vault_path-relative Markdown file to enrich")
     init = sub.add_parser("init-config")
     init.add_argument("--output", required=True)
     init.add_argument("--force", action="store_true")
@@ -151,7 +152,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "enrich":
         try:
-            stats = enrich_vault(config, use_cache_only=args.use_cache_only, cline_command=args.cline_command)
+            stats = enrich_vault(
+                config,
+                use_cache_only=args.use_cache_only,
+                cline_command=args.cline_command,
+                raw_file_path=args.file,
+            )
         except (RuntimeError, ValueError) as exc:
             print(f"ERROR: {exc}", file=sys.stderr)
             return 2

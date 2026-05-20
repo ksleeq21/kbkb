@@ -66,6 +66,12 @@ kb-api reindex --config /path/to/linux-config.yaml
 kb-api status --config /path/to/linux-config.yaml
 ```
 
+전체 vault 처리 전에 단일 raw Markdown만 검증하려면 raw vault 기준 상대 경로를 넘긴다.
+
+```bash
+kb-api enrich --config /path/to/linux-config.yaml --file "20_Emails/ProjectA/example.md"
+```
+
 또는 admin API를 사용한다.
 
 ```bash

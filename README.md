@@ -162,6 +162,12 @@ kb-api reindex --config ~/.config/kb-api/config.yaml
 kb-api status --config ~/.config/kb-api/config.yaml
 ```
 
+대형 vault에서 일부 파일만 먼저 검증하려면 raw vault 기준 상대 경로를 지정한다. 결과는 enriched vault의 같은 상대 경로에 생성된다.
+
+```bash
+kb-api enrich --config ~/.config/kb-api/config.yaml --file "20_Emails/ProjectA/example.md"
+```
+
 4. API를 시작한다.
 
 ```bash

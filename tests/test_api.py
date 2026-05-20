@@ -86,6 +86,63 @@ class ApiTests(unittest.TestCase):
             with open(raw_note, encoding="utf-8") as fh:
                 self.assertNotIn("llm_summary", fh.read())
 
+    def test_enrichment_can_process_one_relative_markdown_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            raw = os.path.join(tmp, "raw")
+            enriched = os.path.join(tmp, "enriched")
+            cache = os.path.join(tmp, "cache")
+            os.makedirs(os.path.join(raw, "20_Emails", "ProjectA"))
+            os.makedirs(os.path.join(raw, "90_Attachments", "email", "abc"))
+            first = os.path.join(raw, "20_Emails", "ProjectA", "first.md")
+            second = os.path.join(raw, "20_Emails", "ProjectA", "second.md")
+            attachment = os.path.join(raw, "90_Attachments", "email", "abc", "report.txt")
+            with open(first, "w", encoding="utf-8") as fh:
+                fh.write("---\ntype: \"email\"\ntags:\n  - \"email\"\nsubject: \"First\"\n---\n# First\n본문")
+            with open(second, "w", encoding="utf-8") as fh:
+                fh.write("---\ntype: \"email\"\ntags:\n  - \"email\"\nsubject: \"Second\"\n---\n# Second\n본문")
+            with open(attachment, "w", encoding="utf-8") as fh:
+                fh.write("attachment")
+            cache_file = os.path.join(cache, "20_Emails", "ProjectA", "first.metadata.json")
+            os.makedirs(os.path.dirname(cache_file))
+            with open(cache_file, "w", encoding="utf-8") as fh:
+                fh.write('{"tags": ["테스트"], "llm_summary": "단일 파일 테스트"}')
+
+            config = ApiConfig(
+                vault_path=enriched,
+                database_path=os.path.join(tmp, "kb.sqlite"),
+                raw_vault_path=raw,
+                enriched_vault_path=enriched,
+                enrichment_cache_path=cache,
+            )
+            stats = enrich_vault(config, use_cache_only=True, raw_file_path="20_Emails/ProjectA/first.md")
+
+            self.assertEqual(stats.raw_notes, 1)
+            self.assertEqual(stats.enriched_notes, 1)
+            self.assertEqual(stats.copied_files, 0)
+            self.assertEqual(stats.failed, 0)
+            with open(os.path.join(enriched, "20_Emails", "ProjectA", "first.md"), encoding="utf-8") as fh:
+                self.assertIn('llm_summary: "단일 파일 테스트"', fh.read())
+            self.assertFalse(os.path.exists(os.path.join(enriched, "20_Emails", "ProjectA", "second.md")))
+            self.assertFalse(os.path.exists(os.path.join(enriched, "90_Attachments", "email", "abc", "report.txt")))
+
+    def test_enrichment_rejects_unsafe_single_file_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            raw = os.path.join(tmp, "raw")
+            os.makedirs(raw)
+            config = ApiConfig(
+                vault_path=os.path.join(tmp, "enriched"),
+                database_path=os.path.join(tmp, "kb.sqlite"),
+                raw_vault_path=raw,
+                enriched_vault_path=os.path.join(tmp, "enriched"),
+                enrichment_cache_path=os.path.join(tmp, "cache"),
+            )
+            with self.assertRaises(ValueError):
+                enrich_vault(config, use_cache_only=True, raw_file_path="../outside.md")
+            with self.assertRaises(ValueError):
+                enrich_vault(config, use_cache_only=True, raw_file_path="/tmp/outside.md")
+            with self.assertRaises(ValueError):
+                enrich_vault(config, use_cache_only=True, raw_file_path="90_Attachments/email/report.txt")
+
     def test_enrichment_rejects_source_metadata_changes(self) -> None:
         with self.assertRaises(ValueError):
             validate_llm_metadata({"conversation_id": "made-up"})

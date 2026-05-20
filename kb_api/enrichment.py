@@ -48,7 +48,13 @@ class EnrichmentStats:
     failed: int = 0
 
 
-def enrich_vault(config: ApiConfig, *, use_cache_only: bool = False, cline_command: str = "cline") -> EnrichmentStats:
+def enrich_vault(
+    config: ApiConfig,
+    *,
+    use_cache_only: bool = False,
+    cline_command: str = "cline",
+    raw_file_path: str | Path | None = None,
+) -> EnrichmentStats:
     raw_root = config.raw_vault_path
     enriched_root = config.enriched_vault_path or config.vault_path
     cache_root = config.enrichment_cache_path
@@ -64,11 +70,12 @@ def enrich_vault(config: ApiConfig, *, use_cache_only: bool = False, cline_comma
     if not raw_root.exists() or not raw_root.is_dir():
         raise ValueError(f"raw_vault_path does not exist or is not a directory: {raw_root}")
 
-    copied = _copy_non_markdown_files(raw_root, enriched_root, config.ignore_dirs)
+    copied = 0 if raw_file_path is not None else _copy_non_markdown_files(raw_root, enriched_root, config.ignore_dirs)
     raw_notes = 0
     enriched_notes = 0
     failed = 0
-    for raw_file in scan_markdown(raw_root, config.ignore_dirs):
+    raw_files = [_resolve_single_raw_markdown(raw_root, raw_file_path, config.ignore_dirs)] if raw_file_path is not None else scan_markdown(raw_root, config.ignore_dirs)
+    for raw_file in raw_files:
         raw_notes += 1
         rel = raw_file.relative_to(raw_root)
         try:
@@ -81,6 +88,20 @@ def enrich_vault(config: ApiConfig, *, use_cache_only: bool = False, cline_comma
         except (OSError, ValueError, RuntimeError, json.JSONDecodeError):
             failed += 1
     return EnrichmentStats(raw_notes=raw_notes, enriched_notes=enriched_notes, copied_files=copied, failed=failed)
+
+
+def _resolve_single_raw_markdown(raw_root: Path, raw_file_path: str | Path, ignore_dirs: list[str]) -> Path:
+    rel = Path(raw_file_path)
+    if rel.is_absolute() or ".." in rel.parts or str(raw_file_path).strip() == "":
+        raise ValueError("--file must be a raw_vault_path-relative Markdown path")
+    if rel.suffix.lower() != ".md":
+        raise ValueError("--file must point to a .md file")
+    if set(rel.parts) & set(ignore_dirs):
+        raise ValueError("--file points inside an ignored directory")
+    raw_file = raw_root / rel
+    if not raw_file.exists() or not raw_file.is_file():
+        raise ValueError(f"--file does not exist under raw_vault_path: {rel.as_posix()}")
+    return raw_file
 
 
 def render_enriched_markdown(raw_text: str, llm_metadata: dict[str, Any]) -> str:
