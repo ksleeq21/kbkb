@@ -23,7 +23,7 @@ Linux
 
 역할 분리:
 
-- Windows: Outlook에서 선택한 메일함을 읽고 Markdown, `.msg`, 첨부파일을 vault에 저장한다.
+- Windows: Outlook에서 선택한 메일함을 읽고 Markdown을 vault에 저장한다. `.msg`와 첨부파일은 config에서 명시적으로 켠 경우에만 저장한다.
 - Linux: 동기화된 raw Markdown을 Cline CLI로 보강해 enriched Markdown을 만든 뒤 SQLite FTS index를 생성한다.
 - Cline/Codex: Linux API를 호출해 검색 결과와 evidence를 가져온다.
 
@@ -162,8 +162,8 @@ kb-win-sync list-mailboxes --config "$env:USERPROFILE\kb-win-sync\config.yaml"
       tags:
         - "email"
         - "mailbox/projecta"
-      save_msg: true
-      save_attachments: true
+      save_msg: false
+      save_attachments: false
 ```
 
 자동으로 추가된 항목을 `%USERPROFILE%\kb-win-sync\config.yaml`에서 확인하고, `name`, `target_folder`, `tags`를 프로젝트 규칙에 맞게 다듬는다.
@@ -190,8 +190,8 @@ outlook:
       tags:
         - "email"
         - "project/project-a"
-      save_msg: true
-      save_attachments: true
+      save_msg: false
+      save_attachments: false
 sync:
   enabled: false
   host: "linux-dev.example.internal"

@@ -9,8 +9,8 @@ outlook:
       tags:
         - "email"
         - "project/project-a"
-      save_msg: true
-      save_attachments: true
+      save_msg: false
+      save_attachments: false
 sync:
   enabled: false
   host: "linux-dev.example.internal"

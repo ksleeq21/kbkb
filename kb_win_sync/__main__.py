@@ -123,8 +123,8 @@ def _folder_config_snippet(path: str) -> str:
             "      tags:",
             '        - "email"',
             f'        - "mailbox/{slug}"',
-            "      save_msg: true",
-            "      save_attachments: true",
+            "      save_msg: false",
+            "      save_attachments: false",
         ]
     )
 

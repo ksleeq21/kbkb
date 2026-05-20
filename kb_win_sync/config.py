@@ -14,7 +14,7 @@ class OutlookFolderConfig:
     target_folder: str
     tags: list[str] = field(default_factory=list)
     save_msg: bool = False
-    save_attachments: bool = True
+    save_attachments: bool = False
 
 
 @dataclass(frozen=True)
@@ -65,7 +65,7 @@ def parse_config(data: dict[str, Any]) -> WinConfig:
                 target_folder=str(item["target_folder"]).strip("/\\"),
                 tags=[str(tag) for tag in item.get("tags", [])],
                 save_msg=bool(item.get("save_msg", False)),
-                save_attachments=bool(item.get("save_attachments", True)),
+                save_attachments=bool(item.get("save_attachments", False)),
             )
         )
     if folder_errors:

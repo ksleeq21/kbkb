@@ -19,8 +19,29 @@ class WinSyncTests(unittest.TestCase):
     def test_windows_config_parses_example(self) -> None:
         config = load_config("examples/windows-config.example.yaml")
         self.assertEqual(config.folders[0].name, "project-a")
-        self.assertTrue(config.folders[0].save_msg)
+        self.assertFalse(config.folders[0].save_msg)
+        self.assertFalse(config.folders[0].save_attachments)
         self.assertFalse(config.sync.enabled)
+
+    def test_windows_config_defaults_do_not_save_msg_or_attachments(self) -> None:
+        config = parse_config(
+            {
+                "vault_path": "D:/KnowledgeVault",
+                "state_path": "state.json",
+                "log_path": "log.txt",
+                "outlook": {
+                    "folders": [
+                        {
+                            "name": "project-a",
+                            "outlook_path": "\\Mailbox\\Inbox\\_KB\\ProjectA",
+                            "target_folder": "20_Emails/ProjectA",
+                        }
+                    ]
+                },
+            }
+        )
+        self.assertFalse(config.folders[0].save_msg)
+        self.assertFalse(config.folders[0].save_attachments)
 
     def test_windows_config_reports_missing_folder_keys(self) -> None:
         with self.assertRaises(ValueError) as ctx:
@@ -68,8 +89,8 @@ outlook:
       tags:
         - "email"
         - "project/project-a"
-      save_msg: true
-      save_attachments: true
+      save_msg: false
+      save_attachments: false
 sync:
   enabled: false
 """,
@@ -82,6 +103,8 @@ sync:
             updated = config_path.read_text(encoding="utf-8")
             self.assertIn('outlook_path: "\\\\Mailbox\\\\Inbox\\\\_KB\\\\Real Project"', updated)
             self.assertIn('target_folder: "20_Emails/real-project"', updated)
+            self.assertIn("save_msg: false", updated)
+            self.assertIn("save_attachments: false", updated)
             self.assertNotIn("Mailbox - User Name", updated)
             self.assertIn("updated config:", output.getvalue())
 

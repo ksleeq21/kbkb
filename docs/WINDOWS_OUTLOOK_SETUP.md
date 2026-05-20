@@ -63,11 +63,11 @@ Example output shape:
       tags:
         - "email"
         - "mailbox/projecta"
-      save_msg: true
-      save_attachments: true
+      save_msg: false
+      save_attachments: false
 ```
 
-Import를 실행하기 전에 config에 추가된 `name`, `target_folder`, `tags`를 검토한다. 전체 Inbox를 선택하지 않도록 folder index를 확인한다.
+Import를 실행하기 전에 config에 추가된 `name`, `target_folder`, `tags`를 검토한다. 전체 Inbox를 선택하지 않도록 folder index를 확인한다. 기본값은 `save_msg: false`, `save_attachments: false`이며, 원본 `.msg`나 첨부파일까지 vault에 저장해야 할 때만 `true`로 바꾼다.
 
 ## Outlook Folder 선택
 
@@ -101,8 +101,8 @@ outlook:
       tags:
         - "email"
         - "project/project-a"
-      save_msg: true
-      save_attachments: true
+      save_msg: false
+      save_attachments: false
 ```
 
 의도한 경우가 아니라면 전체 Inbox를 import 대상으로 지정하지 않는다. 더 안전한 workflow는 선택한 message를 `_KB` folder로 옮기는 것이다.
