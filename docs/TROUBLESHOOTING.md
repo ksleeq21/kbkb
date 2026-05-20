@@ -26,7 +26,7 @@ kb-api validate-config --config ~/.config/kb-api/config.yaml
 | `database_not_indexed` | reindex가 실행되지 않았거나 DB path가 바뀜 | `kb-api status --config <config>` | `kb-api reindex --config <config>`를 실행한다 |
 | `/health`는 동작하지만 `/search`가 실패함 | token, DB, query 문제 | `curl -sS 'http://127.0.0.1:8765/health?deep=true'` | DB가 존재하는지 확인하고 단순 query를 사용한다 |
 | 검색 결과가 비어 있음 | vault가 sync되지 않았거나 reindex되지 않음 | `kb-api status --config <config>` | vault path 아래 Markdown 파일이 있는지 확인한 뒤 reindex한다 |
-| `kb-api enrich`가 `failed`를 보고함 | cache JSON 누락/invalid, Cline 실패, LLM metadata 검증 실패, enriched vault 쓰기 실패 | `kb-api enrich --file <raw-relative.md> --verbose` | stderr의 `ENRICH_FAILED`에서 `rel`, `stage`, `error_type`, traceback을 확인한다 |
+| `kb-api enrich`가 `failed`를 보고함 | cache JSON 누락/invalid, Cline 실패, LLM metadata 검증 실패, enriched vault 쓰기 실패 | `kb-api enrich --file <raw-relative.md> --verbose` | stderr의 `ENRICH_FAILED`에서 `rel`, `stage`, `error_type`, traceback을 확인한다. Cline을 직접 테스트하려면 `docs/CLINE_ENRICHMENT_TESTING.md`를 사용한다 |
 | path traversal이 거부됨 | path가 absolute이거나 `..`를 포함함 | 요청한 path 확인 | `20_Emails/ProjectA/example.md` 같은 vault-relative path를 사용한다 |
 | Outlook을 사용할 수 없음 | `pywin32`, classic Outlook, session 문제 | `kb-win-sync validate-config --config <config>` | Windows extras를 설치하고 classic Outlook을 사용하며 로그인된 상태에서 실행한다 |
 | Outlook folder를 찾을 수 없음 | `outlook_path`가 틀림 | `kb-win-sync --config <config> --dry-run` | Outlook folder tree에서 path를 다시 만든다 |

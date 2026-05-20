@@ -287,6 +287,8 @@ kb-api enrich
 kb-api enrich --use-cache-only
 ```
 
+파일 하나를 대상으로 Cline CLI prompt와 cache JSON을 직접 확인하려면 [CLINE_ENRICHMENT_TESTING.md](CLINE_ENRICHMENT_TESTING.md)를 사용한다.
+
 첨부파일 정책은 `copy`로 고정한다. Raw vault의 Markdown이 아닌 파일은 enriched vault에 복사한다. Symlink는 Windows/SFTP/Obsidian 경계에서 깨질 수 있으므로 사용하지 않는다.
 
 ### Cline Prompt 원칙

@@ -380,6 +380,8 @@ Cline CLI를 호출하지 않고 cache fixture만으로 테스트할 때:
 kb-api enrich --use-cache-only
 ```
 
+Cline CLI를 직접 실행해 파일 하나의 prompt/output/cache를 확인하려면 [CLINE_ENRICHMENT_TESTING.md](CLINE_ENRICHMENT_TESTING.md)를 사용한다.
+
 테스트 방식:
 
 ```text
