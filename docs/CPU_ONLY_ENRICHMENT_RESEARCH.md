@@ -214,6 +214,8 @@ tags:
 6. 100개 샘플에서 Cline 결과와 CPU 결과를 비교하는 evaluation script를 만든다.
 7. 결과가 안정되면 기본 provider를 `cpu`로 바꾸고, LLM provider는 수동 보강용으로 남긴다.
 
+`llm_tags`와 `llm_summary` 모델 설치 및 Linux 준비 절차는 [CPU_ONLY_MODEL_SETUP.md](CPU_ONLY_MODEL_SETUP.md)를 따른다.
+
 ## 참고 링크
 
 - Current provider contract: `kb_api/enrichment_providers.py`
